@@ -82,6 +82,7 @@ async def root():
 
 @app.get("/health")
 async def health_check():
+    # TODO: Add comprehensive health checks for database, Redis, and external services
     return {"status": "healthy"}
 
 if __name__ == "__main__":

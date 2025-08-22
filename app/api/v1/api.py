@@ -3,6 +3,7 @@ from app.api.v1.endpoints import auth, documents, knowledge_base, processing, va
 
 api_router = APIRouter()
 
+# TODO: Implement all endpoint routers with proper error handling and validation
 # Include all endpoint routers
 api_router.include_router(auth.router, prefix="/auth", tags=["authentication"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
