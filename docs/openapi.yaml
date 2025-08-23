@@ -1,0 +1,496 @@
+openapi: 3.1.0
+info:
+  title: Intelligent Docs Processing Knowledge Base API
+  description: API for document processing, knowledge base management, and validation workflows
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@intelligentdocs.com
+
+servers:
+  - url: http://localhost:8000
+    description: Development server
+  - url: https://api.intelligentdocs.com
+    description: Production server
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+        full_name:
+          type: string
+        role:
+          type: string
+          enum: [admin, user, validator, viewer]
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Document:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        file_info:
+          $ref: '#/components/schemas/FileInfo'
+        status:
+          type: string
+          enum: [pending, processing, completed, failed, cancelled]
+        processing_progress:
+          $ref: '#/components/schemas/ProcessingProgress'
+        metadata:
+          $ref: '#/components/schemas/DocumentMetadata'
+        tags:
+          type: array
+          items:
+            type: string
+        uploaded_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    FileInfo:
+      type: object
+      properties:
+        filename:
+          type: string
+        size:
+          type: integer
+        mime_type:
+          type: string
+        extension:
+          type: string
+
+    ProcessingProgress:
+      type: object
+      properties:
+        current_step:
+          type: integer
+        total_steps:
+          type: integer
+        step_name:
+          type: string
+        percentage:
+          type: number
+          minimum: 0
+          maximum: 100
+
+    DocumentMetadata:
+      type: object
+      properties:
+        author:
+          type: string
+        creation_date:
+          type: string
+          format: date
+        modification_date:
+          type: string
+          format: date
+        page_count:
+          type: integer
+        language:
+          type: string
+        document_type:
+          type: string
+          enum: [pdf, docx, txt, csv, image, presentation, spreadsheet, other]
+        confidence_score:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    ValidationTask:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        document_id:
+          type: string
+          format: uuid
+        assigned_to:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, in_progress, approved, rejected, needs_review]
+        priority:
+          type: string
+          enum: [low, medium, high, critical]
+        task_type:
+          type: string
+          enum: [content_accuracy, entity_recognition, relationship_validation, data_quality, compliance_check, custom_validation]
+        due_date:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+        message:
+          type: string
+        error:
+          type: string
+
+    PaginatedResponse:
+      type: object
+      properties:
+        items:
+          type: array
+        total:
+          type: integer
+        page:
+          type: integer
+        size:
+          type: integer
+        pages:
+          type: integer
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns the health status of the API and its dependencies
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                  services:
+                    type: object
+                    properties:
+                      database:
+                        type: string
+                      redis:
+                        type: string
+                      elasticsearch:
+                        type: string
+
+  /auth/login:
+    post:
+      summary: User login
+      description: Authenticate user and return JWT tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+                remember_me:
+                  type: boolean
+                  default: false
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '401':
+          description: Invalid credentials
+
+  /auth/register:
+    post:
+      summary: User registration
+      description: Register a new user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - username
+                - full_name
+                - password
+                - confirm_password
+              properties:
+                email:
+                  type: string
+                  format: email
+                username:
+                  type: string
+                  minLength: 3
+                full_name:
+                  type: string
+                password:
+                  type: string
+                  minLength: 8
+                confirm_password:
+                  type: string
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: Validation error
+
+  /documents:
+    get:
+      summary: List documents
+      description: Retrieve a paginated list of documents
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, processing, completed, failed, cancelled]
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of documents
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Document'
+
+    post:
+      summary: Upload document
+      description: Upload and process a new document
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+                - title
+              properties:
+                file:
+                  type: string
+                  format: binary
+                title:
+                  type: string
+                description:
+                  type: string
+                tags:
+                  type: string
+                knowledge_base_id:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Document uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /documents/{document_id}:
+    get:
+      summary: Get document details
+      description: Retrieve detailed information about a specific document
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: document_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Document details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /validation/tasks:
+    get:
+      summary: List validation tasks
+      description: Retrieve a paginated list of validation tasks
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, in_progress, approved, rejected, needs_review]
+        - name: assigned_to
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of validation tasks
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ValidationTask'
+
+  /validation/tasks/{task_id}:
+    get:
+      summary: Get validation task details
+      description: Retrieve detailed information about a specific validation task
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Validation task details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+    put:
+      summary: Update validation task
+      description: Update the status and results of a validation task
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [pending, in_progress, approved, rejected, needs_review]
+                results:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      criteria_id:
+                        type: string
+                      status:
+                        type: string
+                        enum: [passed, failed, warning, needs_review]
+                      score:
+                        type: number
+                        minimum: 0
+                        maximum: 100
+                      feedback:
+                        type: string
+                comments:
+                  type: string
+      responses:
+        '200':
+          description: Validation task updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'

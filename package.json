@@ -1,0 +1,45 @@
+{
+  "name": "documind",
+  "version": "1.0.0",
+  "description": "DocuMind™ - Intelligent Document Processing and Knowledge Base",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bash scripts/dev.sh",
+    "stop": "bash scripts/stop-dev.sh",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "clean": "pnpm -r clean",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "db:migrate": "cd app && python -m alembic upgrade head",
+    "db:seed": "cd app && python scripts/seed_tenant_data.py",
+    "install:all": "pnpm install && cd app && pip install -r requirements.txt"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.17.0",
+    "pnpm": ">=8.0.0"
+  },
+  "keywords": [
+    "documind",
+    "rag",
+    "document-processing",
+    "ai",
+    "knowledge-base",
+    "fastapi",
+    "nextjs",
+    "typescript"
+  ],
+  "author": "DocuMind Team",
+  "license": "MIT"
+}

@@ -8,19 +8,25 @@
 
 ### Backend
 - **Framework**: FastAPI with async/await patterns
-- **Database**: PostgreSQL with SQLAlchemy ORM
-- **Task Queue**: Celery with Redis broker
-- **Authentication**: JWT tokens with role-based access
+- **Database**: PostgreSQL 15+ with SQLAlchemy 2.0 ORM
+- **Task Queue**: Celery with Redis 7+ broker
+- **Authentication**: JWT tokens with role-based access control
 - **File Storage**: Local filesystem (dev) / AWS S3 (prod)
-- **AI/ML**: OCR, NLP, and machine learning for document processing
+- **AI/ML**: OCR (Tesseract), NLP (spaCy), LangChain for RAG, LangGraph for orchestration
+- **Search**: Elasticsearch 8+ for hybrid search (BM25 + vector)
+- **Vector Database**: PostgreSQL with pgvector extension
+- **Monitoring**: Structured logging with structlog, Prometheus metrics
 
 ### Frontend
-- **Framework**: Next.js 13+ with App Router
-- **Language**: TypeScript for type safety
-- **Styling**: Tailwind CSS with custom design system
-- **State Management**: Zustand for global state
-- **Data Fetching**: React Query for server state
+- **Framework**: Next.js 14+ with App Router and Server Components
+- **Language**: TypeScript 5+ with strict mode enabled
+- **Styling**: Tailwind CSS 3+ with custom design tokens
+- **State Management**: Zustand for global state, React Context for auth/theme
+- **Data Fetching**: TanStack Query (React Query) for server state
 - **Forms**: React Hook Form with Zod validation
+- **UI Components**: Custom component library with Radix UI primitives
+- **Real-time**: Socket.IO client for WebSocket connections
+- **Testing**: Jest, React Testing Library, Playwright for E2E
 
 ### Infrastructure
 - **Containerization**: Docker and Docker Compose
@@ -164,6 +170,29 @@
 - IP whitelisting for admin endpoints
 - Security headers (HSTS, CSP, X-Frame-Options)
 
+### Security Implementation Table
+
+| Security Aspect | Implementation | Location | Notes |
+|----------------|----------------|----------|-------|
+| **Authentication** | JWT tokens with refresh | `app/core/security.py` | 15min access, 7day refresh |
+| **Authorization** | Role-based (admin, user, validator) | `app/models/user.py` | Granular permissions per endpoint |
+| **Secrets Management** | Environment variables + KMS | `.env.example` | No hardcoded secrets in code |
+| **Data Encryption** | AES-256 at rest, TLS 1.3 in transit | Database + API | Full encryption pipeline |
+| **Input Validation** | Pydantic schemas + sanitization | `app/schemas/` | All inputs validated |
+| **Rate Limiting** | Redis-based sliding window | `app/core/security.py` | 100 req/min per user |
+| **Audit Logging** | Structured JSON logs | `app/core/logging.py` | All actions logged with user context |
+| **CORS** | Configurable origins | `app/main.py` | Production: specific domains only |
+| **File Upload** | MIME type validation + virus scan | `app/services/file_storage.py` | Whitelist + size limits |
+| **SQL Injection** | SQLAlchemy ORM + parameterized queries | All database operations | No raw SQL |
+| **XSS Prevention** | Content Security Policy + sanitization | Frontend + API responses | CSP headers enforced |
+| **CSRF Protection** | SameSite cookies + CSRF tokens | Authentication system | Double submit pattern |
+
+### Compliance Requirements
+- **GDPR**: Data anonymization, right to deletion, consent management
+- **SOC2**: Audit trails, access controls, data protection
+- **HIPAA**: PHI handling, encryption, access logging
+- **ISO 27001**: Information security management system
+
 ## Testing Expectations
 
 ### Frontend Testing
@@ -269,5 +298,134 @@
 - Secure and performant architecture
 - Well-documented APIs and components
 - Automated deployment and monitoring
+
+## Response Schema
+
+### Claude Response Format
+All Claude responses must follow this exact format:
+
+```diff
+// File: path/to/file.ts
+- // Old code or comment
++ // New code or comment
+```
+
+### Response Rules
+- **NO PROSE**: Do not include explanatory text outside of code blocks
+- **DIFF ONLY**: Use diff format for all code changes
+- **SINGLE FILE**: One file per response unless explicitly requested
+- **CONTEXT**: Include 3-5 lines of context before and after changes
+- **COMMENTS**: Use inline comments for complex logic explanations
+
+### Example Response
+**User Request**: "Add error handling to the document upload function"
+
+```diff
+// File: frontend/components/features/document-upload.tsx
+  const handleFileUpload = async (file: File) => {
++   try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await apiClient.uploadDocument(formData);
+      
+      if (response.success) {
+        setUploadStatus('success');
+        onUploadComplete(response.data);
+      }
++   } catch (error) {
++     console.error('Upload failed:', error);
++     setUploadStatus('error');
++     setErrorMessage(error.message || 'Upload failed. Please try again.');
++   }
+  };
+```
+
+## Performance Budgets
+
+### Frontend Performance
+- **Bundle Size**: < 500KB gzipped for main bundle
+- **First Contentful Paint**: < 1.5s
+- **Largest Contentful Paint**: < 2.5s
+- **Cumulative Layout Shift**: < 0.1
+- **First Input Delay**: < 100ms
+
+### Backend Performance
+- **API Response Time**: < 500ms (P95)
+- **Database Query Time**: < 100ms (P95)
+- **File Upload Time**: < 30s for 100MB files
+- **Processing Queue**: < 5min for standard documents
+
+### CI/CD Performance Gates
+```yaml
+# .github/workflows/performance.yml
+- name: Performance Check
+  run: |
+    npm run build
+    npm run analyze-bundle
+    npm run lighthouse-ci
+```
+
+## Example Prompt and Response
+
+### Example User Prompt
+"Add a new API endpoint for bulk document deletion with proper validation and error handling"
+
+### Ideal Claude Response
+```diff
+// File: app/api/v1/endpoints/documents.py
+  from typing import List
+  from fastapi import APIRouter, Depends, HTTPException
+  from app.schemas.document import DocumentDeleteRequest
+  from app.services.document import DocumentService
+  
+  router = APIRouter()
+  
++ @router.delete("/bulk")
++ async def delete_documents_bulk(
++     request: DocumentDeleteRequest,
++     current_user = Depends(get_current_user),
++     document_service: DocumentService = Depends()
++ ):
++     """
++     Delete multiple documents with validation and error handling.
++     """
++     try:
++         # Validate user permissions
++         if not current_user.can_delete_documents():
++             raise HTTPException(status_code=403, detail="Insufficient permissions")
++         
++         # Validate document IDs
++         if not request.document_ids or len(request.document_ids) > 100:
++             raise HTTPException(status_code=400, detail="Invalid document count")
++         
++         # Delete documents
++         deleted_count = await document_service.delete_documents_bulk(
++             document_ids=request.document_ids,
++             user_id=current_user.id
++         )
++         
++         return {"deleted_count": deleted_count, "message": "Documents deleted successfully"}
++         
++     except HTTPException:
++         raise
++     except Exception as e:
++         logger.error(f"Bulk deletion failed: {e}")
++         raise HTTPException(status_code=500, detail="Internal server error")
+```
+
+```diff
+// File: app/schemas/document.py
++ class DocumentDeleteRequest(BaseModel):
++     document_ids: List[str]
++     
++     @validator('document_ids')
++     def validate_document_ids(cls, v):
++         if not v:
++             raise ValueError('At least one document ID is required')
++         if len(v) > 100:
++             raise ValueError('Maximum 100 documents can be deleted at once')
++         return v
+```
 
 This prompt declaration provides the foundation for consistent, high-quality development across the entire project stack.

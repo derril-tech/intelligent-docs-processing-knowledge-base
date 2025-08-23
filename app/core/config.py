@@ -35,6 +35,13 @@ class Settings(BaseSettings):
     GOOGLE_CLOUD_PROJECT_ID: Optional[str] = None
     GOOGLE_APPLICATION_CREDENTIALS: Optional[str] = None
     
+    # RAG Pipeline Configuration
+    DEFAULT_EMBEDDING_MODEL: str = "text-embedding-3-large"
+    DEFAULT_LLM_MODEL: str = "gpt-4-turbo-preview"
+    CITATION_CONFIDENCE_THRESHOLD: int = 85
+    MAX_CHUNK_SIZE: int = 1000
+    CHUNK_OVERLAP: int = 200
+    
     # OCR Services
     OCR_SERVICE: str = "tesseract"  # tesseract, aws_textract, google_vision
     
@@ -66,6 +73,7 @@ class Settings(BaseSettings):
     # Logging
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "json"
+    LOG_FILE: Optional[str] = None
     
     class Config:
         env_file = ".env"

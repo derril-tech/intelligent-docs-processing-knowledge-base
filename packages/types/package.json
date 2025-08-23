@@ -1,0 +1,28 @@
+{
+  "name": "@documind/types",
+  "version": "1.0.0",
+  "description": "Shared TypeScript types for DocuMind™",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "files": [
+    "dist/**/*"
+  ],
+  "keywords": [
+    "typescript",
+    "types",
+    "documind",
+    "rag",
+    "document-processing"
+  ],
+  "author": "DocuMind Team",
+  "license": "MIT"
+}

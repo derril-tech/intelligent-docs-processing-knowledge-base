@@ -3,6 +3,7 @@ from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 import enum
+from pgvector.sqlalchemy import Vector
 
 class DocumentType(enum.Enum):
     INVOICE = "invoice"
@@ -30,6 +31,9 @@ class Document(Base):
     file_size = Column(Integer, nullable=False)
     mime_type = Column(String(100), nullable=False)
     
+    # Multi-tenant support
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+    
     # Document classification
     document_type = Column(Enum(DocumentType), nullable=True)
     confidence_score = Column(Integer)  # AI confidence in classification (0-100)
@@ -45,8 +49,11 @@ class Document(Base):
     uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships
+    tenant = relationship("Tenant", back_populates="documents")
+    user = relationship("User", back_populates="documents")
     metadata = relationship("DocumentMetadata", back_populates="document", uselist=False)
     processing_status = relationship("DocumentProcessingStatus", back_populates="document")
+    chunks = relationship("DocumentChunk", back_populates="document")
     
     def __repr__(self):
         return f"<Document(id={self.id}, filename='{self.filename}', status='{self.status}')>"

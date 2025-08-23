@@ -1,211 +1,266 @@
-# Frontend Feature Components Instructions
+# Frontend Feature Components Development Instructions
 
-## Purpose
-This folder contains feature-specific React components that implement the core functionality of the application. These components are business logic focused and combine multiple UI components to create complete features.
+## Overview
+This directory contains feature-specific React components for the DocuMind™ frontend. These components implement the core user interface functionality and should follow the established design patterns and coding conventions.
+
+## CLAUDE_TASK: Component Development Guidelines
+
+### 1. Component Architecture
+- Use functional components with hooks
+- Implement proper TypeScript typing
+- Follow the established design system
+- Use composition over inheritance
+
+### 2. State Management
+- Use TanStack Query for server state
+- Use Zustand for client state
+- Implement proper loading and error states
+- Handle optimistic updates where appropriate
+
+### 3. User Experience
+- Implement proper loading states
+- Handle error conditions gracefully
+- Provide meaningful feedback
+- Ensure accessibility compliance
+
+### 4. Performance
+- Use React.memo for expensive components
+- Implement proper memoization
+- Optimize re-renders
+- Use lazy loading where appropriate
 
 ## File Structure
-- `document-upload.tsx` - Document upload and file management component
-- `knowledge-base-search.tsx` - Knowledge base search interface component
-- `processing-queue.tsx` - Processing queue status and management component
-- `validation-tasks.tsx` - Validation task management component
+```
+features/
+├── document-upload.tsx      # Document upload component
+├── knowledge-base-search.tsx # Knowledge base search
+├── processing-queue.tsx     # Processing queue monitoring
+├── validation-tasks.tsx     # Validation task management
+├── rag-chat.tsx            # RAG-powered chat interface
+├── document-viewer.tsx     # Document viewing component
+├── citation-viewer.tsx     # Citation display component
+└── index.ts               # Component exports
+```
 
-## Implementation Guidelines
-
-### Component Pattern
+## Example Component Pattern
 ```typescript
-import React, { useState, useEffect } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { DocumentUploadProps, UploadResponse } from '@/types/document';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { useToast } from '@/hooks/use-toast';
+import React, { useState, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Button, Card, Alert } from '@/components/ui';
+import { DocumentUploadProps, Document } from '@/types';
+import { uploadDocument, fetchDocuments } from '@/lib/api';
 
-interface DocumentUploadComponentProps {
-  onUploadComplete?: (document: UploadResponse) => void;
-  maxFileSize?: number;
+interface DocumentUploadProps {
+  onUpload?: (document: Document) => void;
   acceptedTypes?: string[];
+  maxSize?: number;
+  className?: string;
 }
 
-export const DocumentUploadComponent: React.FC<DocumentUploadComponentProps> = ({
-  onUploadComplete,
-  maxFileSize = 50 * 1024 * 1024, // 50MB
-  acceptedTypes = ['pdf', 'docx', 'jpg', 'jpeg', 'png', 'tiff']
+export const DocumentUpload: React.FC<DocumentUploadProps> = ({
+  onUpload,
+  acceptedTypes = ['application/pdf', 'image/*'],
+  maxSize = 50 * 1024 * 1024, // 50MB
+  className
 }) => {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const { toast } = useToast();
+  const [isDragging, setIsDragging] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const uploadMutation = useMutation({
-    mutationFn: async (file: File) => {
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      const response = await fetch('/api/documents/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      
-      if (!response.ok) {
-        throw new Error('Upload failed');
-      }
-      
-      return response.json();
-    },
-    onSuccess: (data) => {
-      toast({
-        title: 'Upload Successful',
-        description: 'Document uploaded and processing started',
-      });
-      onUploadComplete?.(data);
+    mutationFn: uploadDocument,
+    onSuccess: (document) => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+      onUpload?.(document);
+      setError(null);
     },
     onError: (error) => {
-      toast({
-        title: 'Upload Failed',
-        description: error.message,
-        variant: 'destructive',
-      });
-    },
+      setError(error instanceof Error ? error.message : 'Upload failed');
+    }
   });
 
-  const handleFileSelect = (file: File) => {
+  const handleFileUpload = useCallback(async (file: File) => {
     // Validate file
-    if (file.size > maxFileSize) {
-      toast({
-        title: 'File Too Large',
-        description: `File size must be less than ${maxFileSize / 1024 / 1024}MB`,
-        variant: 'destructive',
-      });
+    if (!acceptedTypes.some(type => file.type.match(type))) {
+      setError('File type not supported');
       return;
     }
 
-    const fileExtension = file.name.split('.').pop()?.toLowerCase();
-    if (!acceptedTypes.includes(fileExtension || '')) {
-      toast({
-        title: 'Invalid File Type',
-        description: `Accepted types: ${acceptedTypes.join(', ')}`,
-        variant: 'destructive',
-      });
+    if (file.size > maxSize) {
+      setError('File too large');
       return;
     }
 
-    setSelectedFile(file);
-  };
+    // Upload file
+    uploadMutation.mutate(file);
+  }, [acceptedTypes, maxSize, uploadMutation]);
 
-  const handleUpload = async () => {
-    if (!selectedFile) return;
-    
-    uploadMutation.mutate(selectedFile);
-  };
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      handleFileUpload(files[0]);
+    }
+  }, [handleFileUpload]);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
 
   return (
-    <div className="w-full max-w-md mx-auto p-6 bg-white rounded-lg shadow-md">
-      <h3 className="text-lg font-semibold mb-4">Upload Document</h3>
-      
-      <div className="space-y-4">
-        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-          <input
-            type="file"
-            accept={acceptedTypes.map(type => `.${type}`).join(',')}
-            onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
-            className="hidden"
-            id="file-upload"
-          />
-          <label htmlFor="file-upload" className="cursor-pointer">
-            <div className="text-gray-600">
-              <p>Click to select a file or drag and drop</p>
-              <p className="text-sm text-gray-500 mt-2">
-                Accepted types: {acceptedTypes.join(', ')}
-              </p>
-            </div>
-          </label>
-        </div>
-
-        {selectedFile && (
-          <div className="p-4 bg-gray-50 rounded-lg">
-            <p className="font-medium">{selectedFile.name}</p>
-            <p className="text-sm text-gray-600">
-              {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-            </p>
+    <Card className={className}>
+      <div
+        className={`upload-area ${isDragging ? 'dragging' : ''}`}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+      >
+        {uploadMutation.isPending ? (
+          <div className="upload-loading">
+            <Spinner />
+            <p>Uploading document...</p>
+          </div>
+        ) : (
+          <div className="upload-content">
+            <UploadIcon className="upload-icon" />
+            <h3>Upload Document</h3>
+            <p>Drag and drop your file here or click to browse</p>
+            <input
+              type="file"
+              accept={acceptedTypes.join(',')}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFileUpload(file);
+              }}
+              className="file-input"
+            />
           </div>
         )}
-
-        {uploadMutation.isPending && (
-          <div className="space-y-2">
-            <Progress value={uploadProgress} className="w-full" />
-            <p className="text-sm text-gray-600">Uploading...</p>
-          </div>
-        )}
-
-        <Button
-          onClick={handleUpload}
-          disabled={!selectedFile || uploadMutation.isPending}
-          className="w-full"
-        >
-          {uploadMutation.isPending ? 'Uploading...' : 'Upload Document'}
-        </Button>
       </div>
-    </div>
+
+      {error && (
+        <Alert variant="destructive" className="mt-4">
+          {error}
+        </Alert>
+      )}
+    </Card>
   );
 };
 ```
 
-### Component Responsibilities
-- **Business Logic**: Implement feature-specific business logic
-- **State Management**: Manage component state and side effects
-- **API Integration**: Handle API calls and data fetching
-- **User Interaction**: Process user inputs and actions
-- **Error Handling**: Handle and display errors appropriately
+## CLAUDE_TASK: Implementation Checklist
 
-### Component Guidelines
-- Use TypeScript for type safety
-- Implement proper error handling
-- Use React Query for data fetching
-- Follow accessibility guidelines
-- Implement responsive design
-- Use consistent styling with design system
+### Document Upload Component
+- [ ] Drag and drop file upload
+- [ ] File type and size validation
+- [ ] Upload progress indication
+- [ ] Error handling and display
+- [ ] Success feedback
+- [ ] Accessibility support
 
-### Feature Components
+### Knowledge Base Search Component
+- [ ] Search input with autocomplete
+- [ ] Filter and sort options
+- [ ] Search results display
+- [ ] Pagination support
+- [ ] Search history
+- [ ] Advanced search options
 
-#### Document Upload Component
-- File selection and validation
-- Upload progress tracking
-- Error handling and user feedback
-- Integration with processing queue
+### Processing Queue Component
+- [ ] Real-time queue status
+- [ ] Progress indicators
+- [ ] Queue management actions
+- [ ] Error handling and retry
+- [ ] Queue statistics
+- [ ] Batch operations
 
-#### Knowledge Base Search Component
-- Search interface with filters
-- Real-time search results
-- Result pagination and sorting
-- Search history and suggestions
+### Validation Tasks Component
+- [ ] Task list with filtering
+- [ ] Task assignment interface
+- [ ] Validation form
+- [ ] Confidence scoring
+- [ ] Batch validation
+- [ ] Audit trail
 
-#### Processing Queue Component
-- Queue status display
-- Progress tracking
-- Error handling and retry
-- Queue management actions
+### RAG Chat Component
+- [ ] Multi-turn chat interface
+- [ ] Message history
+- [ ] Citation display
+- [ ] Export functionality
+- [ ] Chat session management
+- [ ] Real-time updates
 
-#### Validation Tasks Component
-- Task list and filtering
-- Task assignment and completion
-- Validation interface
-- Task history and analytics
+### Document Viewer Component
+- [ ] Document rendering
+- [ ] Zoom and navigation
+- [ ] Annotation support
+- [ ] Search within document
+- [ ] Print and export
+- [ ] Mobile responsiveness
 
-## TODO Items
-- [ ] Implement document upload component
-- [ ] Create knowledge base search component
-- [ ] Add processing queue component
-- [ ] Implement validation tasks component
-- [ ] Add document viewer component
-- [ ] Create analytics dashboard component
-- [ ] Implement user management component
-- [ ] Add settings and preferences component
-- [ ] Create notification center component
-- [ ] Implement export and sharing components
+### Citation Viewer Component
+- [ ] Citation list display
+- [ ] Source document linking
+- [ ] Confidence indicators
+- [ ] Citation editing
+- [ ] Export citations
+- [ ] Citation analytics
 
-## Notes
-- Keep components focused on single features
-- Use composition over inheritance
-- Implement proper loading states
-- Add comprehensive error handling
-- Write unit tests for all components
-- Follow accessibility best practices
+## Styling Guidelines
+
+### Design System Integration
+```typescript
+import { designTokens } from '@/lib/design-tokens';
+
+const styles = {
+  container: 'bg-white rounded-lg shadow-md p-4',
+  button: 'px-4 py-2 bg-primary-500 text-white rounded-md hover:bg-primary-600',
+  input: 'border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-primary-500'
+};
+```
+
+### Responsive Design
+```typescript
+// Use Tailwind responsive classes
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  {/* Content */}
+</div>
+```
+
+### Dark Mode Support
+```typescript
+// Use Tailwind dark mode classes
+<div className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
+  {/* Content */}
+</div>
+```
+
+## Testing Requirements
+- Unit tests for component logic
+- Integration tests for user interactions
+- Accessibility tests
+- Visual regression tests
+- Performance tests for complex components
+
+## Performance Considerations
+- Use React.memo for expensive components
+- Implement proper memoization with useMemo and useCallback
+- Optimize re-renders with proper dependency arrays
+- Use lazy loading for large components
+- Implement virtual scrolling for large lists
+
+## Accessibility Requirements
+- Proper ARIA labels and roles
+- Keyboard navigation support
+- Screen reader compatibility
+- Focus management
+- Color contrast compliance
+- Semantic HTML structure

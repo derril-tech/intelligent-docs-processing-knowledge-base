@@ -1,137 +1,255 @@
-# Services Layer Instructions
+# Services Layer Development Instructions
 
-## Purpose
-This folder contains business logic services that abstract complex operations and external integrations. Services handle the core business logic and coordinate between different components.
+## Overview
+The services layer contains business logic for the DocuMind™ application. Services handle complex operations, coordinate between different components, and implement the core functionality of the platform.
+
+## CLAUDE_TASK: Service Development Guidelines
+
+### 1. Service Architecture
+- Services should be stateless and thread-safe
+- Use dependency injection for external dependencies
+- Implement proper error handling and logging
+- Follow single responsibility principle
+
+### 2. Database Operations
+- Use SQLAlchemy ORM for database operations
+- Implement proper transaction handling
+- Use service methods for complex queries
+- Handle database errors gracefully
+
+### 3. External Integrations
+- Implement retry logic for external API calls
+- Use async/await for I/O operations
+- Handle rate limiting and timeouts
+- Implement proper error handling
+
+### 4. Business Logic
+- Implement domain-specific business rules
+- Validate business constraints
+- Handle edge cases and error conditions
+- Maintain data consistency
 
 ## File Structure
-- `file_storage.py` - File upload, storage, and management services
-- `processing.py` - Document processing orchestration and AI/ML integration
-- `search.py` - Knowledge base search and indexing services
-- `validation.py` - Validation workflow and human-in-the-loop services
+```
+services/
+├── document_service.py    # Document management logic
+├── rag_service.py        # RAG pipeline orchestration
+├── validation_service.py # Validation workflow logic
+├── search_service.py     # Search and indexing
+├── file_storage.py       # File storage operations
+├── processing.py         # Document processing pipeline
+└── user_service.py       # User management logic
+```
 
-## Implementation Guidelines
-
-### Service Class Pattern
+## Example Service Pattern
 ```python
-import structlog
-from typing import Dict, Any, Optional, List
+from typing import List, Optional
 from sqlalchemy.orm import Session
-from app.core.config import settings
 from app.models.document import Document
-from app.schemas.document import DocumentCreate, DocumentResponse
-
-logger = structlog.get_logger()
+from app.schemas.document import DocumentCreate, DocumentUpdate
+from app.core.logging import logger
 
 class DocumentService:
-    """Service for document-related business logic"""
+    """Service for document management operations."""
     
-    def __init__(self):
-        self.config = settings
-    
+    @staticmethod
     async def create_document(
-        self, 
-        db: Session, 
+        db: Session,
         document_data: DocumentCreate,
-        user_id: int
-    ) -> DocumentResponse:
+        user_id: int,
+        tenant_id: int
+    ) -> Document:
         """
-        Create a new document and initiate processing.
+        Create a new document with business logic validation.
         
         Args:
             db: Database session
             document_data: Document creation data
             user_id: ID of the user creating the document
+            tenant_id: ID of the tenant
             
         Returns:
-            DocumentResponse: Created document information
+            Document: Created document instance
             
         Raises:
             ValidationError: If document data is invalid
             ProcessingError: If document processing fails
         """
         try:
-            # Business logic implementation
-            logger.info("Creating document", user_id=user_id, title=document_data.title)
+            # Business logic validation
+            await DocumentService._validate_document_data(document_data)
             
-            # Create document record
+            # Create document instance
             document = Document(
-                title=document_data.title,
-                filename=document_data.filename,
+                **document_data.dict(),
                 user_id=user_id,
-                status="uploaded"
+                tenant_id=tenant_id
             )
+            
+            # Save to database
             db.add(document)
             db.commit()
             db.refresh(document)
             
-            # Initiate processing
-            await self._initiate_processing(document.id)
+            # Trigger background processing
+            await DocumentService._schedule_processing(document.id)
             
-            return DocumentResponse.from_orm(document)
+            logger.info(f"Document created successfully", 
+                       document_id=document.id, user_id=user_id)
+            
+            return document
             
         except Exception as e:
-            logger.error("Failed to create document", error=str(e), user_id=user_id)
             db.rollback()
+            logger.error(f"Failed to create document: {e}")
             raise
     
-    async def _initiate_processing(self, document_id: int) -> None:
-        """Initiate background processing for a document"""
-        # Implementation for processing initiation
+    @staticmethod
+    async def get_user_documents(
+        db: Session,
+        user_id: int,
+        tenant_id: int,
+        skip: int = 0,
+        limit: int = 20,
+        status: Optional[str] = None
+    ) -> List[Document]:
+        """
+        Retrieve documents for a specific user with filtering.
+        
+        Args:
+            db: Database session
+            user_id: ID of the user
+            tenant_id: ID of the tenant
+            skip: Number of records to skip
+            limit: Maximum number of records to return
+            status: Filter by document status
+            
+        Returns:
+            List[Document]: List of documents
+        """
+        query = db.query(Document).filter(
+            Document.user_id == user_id,
+            Document.tenant_id == tenant_id
+        )
+        
+        if status:
+            query = query.filter(Document.status == status)
+        
+        return query.offset(skip).limit(limit).all()
+    
+    @staticmethod
+    async def _validate_document_data(document_data: DocumentCreate) -> None:
+        """Validate document data according to business rules."""
+        # Implement validation logic
+        pass
+    
+    @staticmethod
+    async def _schedule_processing(document_id: int) -> None:
+        """Schedule document processing in background."""
+        # Implement background task scheduling
         pass
 ```
 
-### Service Responsibilities
-- **Business Logic**: Implement core business rules and workflows
-- **Data Validation**: Validate business rules beyond schema validation
-- **External Integration**: Handle API calls to external services
-- **Error Handling**: Provide meaningful error messages and logging
-- **Transaction Management**: Handle database transactions properly
+## CLAUDE_TASK: Implementation Checklist
 
-### Service Dependencies
-- Use dependency injection for external services
-- Keep services stateless when possible
-- Use async/await for I/O operations
-- Implement proper error handling and logging
+### Document Service
+- [ ] Document creation with validation
+- [ ] Document retrieval and filtering
+- [ ] Document update and deletion
+- [ ] Document processing orchestration
+- [ ] File storage integration
+- [ ] Metadata extraction and management
 
-### File Storage Service
-- Handle file upload validation
-- Manage file storage (local/S3)
-- Implement file security measures
-- Handle file format conversion
-
-### Processing Service
-- Orchestrate document processing workflow
-- Integrate with AI/ML services
-- Manage processing queue
-- Handle processing errors and retries
-
-### Search Service
-- Implement knowledge base indexing
-- Handle search queries and filters
-- Manage search result ranking
-- Optimize search performance
+### RAG Service
+- [ ] Document chunking and embedding
+- [ ] Vector similarity search
+- [ ] Hybrid search (vector + keyword)
+- [ ] Answer generation with citations
+- [ ] Confidence scoring
+- [ ] Multi-model support
 
 ### Validation Service
-- Manage validation workflows
-- Handle human-in-the-loop processes
-- Track validation status
-- Implement validation rules
+- [ ] Validation task creation
+- [ ] Task assignment logic
+- [ ] Validation result processing
+- [ ] Confidence threshold management
+- [ ] Batch validation operations
+- [ ] Audit trail management
 
-## TODO Items
-- [ ] Implement file storage service
-- [ ] Create document processing service
-- [ ] Add knowledge base search service
-- [ ] Implement validation workflow service
-- [ ] Add AI/ML integration services
-- [ ] Create caching service
-- [ ] Implement notification service
-- [ ] Add analytics service
-- [ ] Create export service
-- [ ] Implement backup service
+### Search Service
+- [ ] Elasticsearch integration
+- [ ] Index management
+- [ ] Search query processing
+- [ ] Result ranking and filtering
+- [ ] Faceted search
+- [ ] Search analytics
 
-## Notes
-- Keep services focused on single responsibility
-- Use dependency injection for testability
-- Implement comprehensive error handling
-- Add detailed logging for debugging
-- Write unit tests for all services
+### File Storage Service
+- [ ] Local file storage
+- [ ] S3 integration
+- [ ] File validation and processing
+- [ ] Storage quota management
+- [ ] File cleanup and maintenance
+- [ ] Backup and recovery
+
+### Processing Service
+- [ ] OCR processing
+- [ ] Text extraction
+- [ ] Document classification
+- [ ] Entity extraction
+- [ ] Quality assessment
+- [ ] Processing pipeline orchestration
+
+## Error Handling Patterns
+
+### Service-Level Errors
+```python
+class ServiceError(Exception):
+    """Base exception for service errors."""
+    pass
+
+class ValidationError(ServiceError):
+    """Raised when validation fails."""
+    pass
+
+class ProcessingError(ServiceError):
+    """Raised when processing fails."""
+    pass
+
+class NotFoundError(ServiceError):
+    """Raised when resource is not found."""
+    pass
+```
+
+### Error Handling in Services
+```python
+try:
+    result = await external_api_call()
+except ExternalAPIError as e:
+    logger.error(f"External API call failed: {e}")
+    raise ProcessingError(f"Failed to process document: {e}")
+except TimeoutError as e:
+    logger.error(f"Operation timed out: {e}")
+    raise ProcessingError("Operation timed out")
+```
+
+## Testing Requirements
+- Unit tests for all service methods
+- Mock external dependencies
+- Test error conditions and edge cases
+- Integration tests with database
+- Performance tests for critical operations
+
+## Performance Considerations
+- Use async/await for I/O operations
+- Implement caching where appropriate
+- Optimize database queries
+- Use background tasks for heavy operations
+- Monitor and log performance metrics
+
+## Security Considerations
+- Validate all inputs
+- Sanitize data before processing
+- Implement proper access controls
+- Log security-relevant events
+- Handle sensitive data appropriately

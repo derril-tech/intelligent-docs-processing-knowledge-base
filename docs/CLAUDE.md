@@ -2,44 +2,58 @@
 
 ## Project Overview
 
-The **Intelligent Document Processing and Knowledge Base** is a comprehensive, AI-powered platform designed to transform unstructured and semi-structured documents into a rich, accessible, and actionable knowledge base. This system eliminates manual data entry and document review processes, enabling organizations to unlock critical insights hidden within their documents and make smarter, data-driven decisions.
+**DocuMind™** is an AI Document Intelligence & RAG Knowledge OS designed to turn any document corpus into an always-on, trustworthy knowledge system with verifiable answers. The platform ingests messy PDFs, slides, emails, and code docs; enriches them with OCR, structure, entities, and citations; then serves grounded answers via a production-grade RAG pipeline. Designed for regulated teams that need correctness, speed, and scale.
+
+### Core Jobs-to-be-Done
+Upload → Clean/Extract → Index (RAG) → Ask/Automate → Cite & Export
+
+### Key Differentiators
+- Evidence-linked answers with source citations
+- Policy-aware redaction and PII handling
+- Human-in-the-loop validation for low-confidence results
+- Multi-tenant isolation and enterprise security
+- Production-grade RAG pipeline with LangChain + LangGraph
 
 ### Technology Stack
-- **Backend**: FastAPI, SQLAlchemy, PostgreSQL, Redis, Celery
-- **Frontend**: Next.js 13+, TypeScript, Tailwind CSS, React Hook Form
-- **AI/ML**: OCR, NLP, Machine Learning for document processing
-- **Infrastructure**: Docker, Docker Compose, AWS (production)
-- **Testing**: pytest, Jest, Playwright
+- **Backend**: FastAPI (async), SQLAlchemy 2.0, PostgreSQL 15+ (with pgvector), Redis 7+, Celery/Arq
+- **Frontend**: Next.js 14+ (App Router), TypeScript 5+, Tailwind CSS 3+, React Hook Form, TanStack Query, Zustand
+- **AI/ML**: LangChain (tooling & retrievers), LangGraph (stateful graph orchestration), CrewAI (multi-agent teams), RAG pipeline, OCR (Tesseract), NLP (spaCy)
+- **Search**: Elasticsearch 8+ (hybrid search), pgvector (vector similarity)
+- **Infrastructure**: Docker, Docker Compose, AWS (production), Vercel (frontend)
+- **Testing**: pytest, Jest, Playwright, React Testing Library
+- **Multi-Tenant**: Row-level security, tenant isolation, role-based access control
 
 ### Target Users
-- Business analysts and data scientists
-- Document processing teams
-- Knowledge management professionals
-- Compliance and audit teams
-- Executive decision makers
+- **CX Teams**: Customer experience and support enablement
+- **Legal Teams**: Contract analysis and compliance documentation
+- **Operations Teams**: Process documentation and knowledge management
+- **Revenue Operations**: Sales enablement and customer data
+- **Product Teams**: Technical documentation and feature specs
+- **Engineering Teams**: Code documentation and technical knowledge
 
 ### Project Goals
-- Automate document processing workflows
-- Create searchable knowledge bases from unstructured data
-- Provide real-time processing and validation capabilities
-- Enable data-driven insights and analytics
-- Ensure data accuracy through human-in-the-loop validation
+- **RAG Pipeline Excellence**: Build production-grade retrieval-augmented generation with ≥95% citation accuracy
+- **Enterprise Security**: Multi-tenant isolation, AES-256 encryption, SOC2-ready controls
+- **Performance & Scale**: <700ms retrieval latency, 10k concurrent chats, 1M+ documents
+- **Evidence-Driven Answers**: Every answer includes verifiable citations and source spans
+- **Human-in-the-Loop Validation**: Automated confidence scoring with manual review for low-confidence results
+- **99.9% Uptime**: Enterprise-grade reliability with comprehensive monitoring and alerting
 
 ## Folder & File Structure
 
 ### Editable Files (Claude can modify)
-- `app/api/v1/endpoints/` - API endpoint implementations
-- `app/services/` - Business logic implementation
-- `app/tasks/` - Background task implementations
-- `app/schemas/` - Pydantic model definitions
-- `frontend/app/` - Next.js pages and layouts
+- `app/api/v1/endpoints/` - API endpoint implementations (including new RAG endpoints)
+- `app/services/` - Business logic implementation (RAG pipeline, validation, search)
+- `app/schemas/` - Pydantic model definitions (including RAG schemas)
+- `app/tasks/` - Background task implementations (ingestion, indexing, processing)
+- `frontend/app/` - Next.js pages and layouts (Ingest Studio, Ask Workspace, Validation Queue, Admin Console)
 - `frontend/components/features/` - Feature-specific components
 - `frontend/hooks/` - Custom React hooks
 - `frontend/types/` - TypeScript type definitions
 - `tests/` - Test files and fixtures
 
 ### Do-Not-Touch Files (Infrastructure only)
-- `app/core/` - Core configuration and infrastructure
+- `app/core/` - Core configuration and infrastructure (including tenant middleware)
 - `app/models/` - Database models (use migrations instead)
 - `alembic/` - Database migration files
 - `docker-compose.yml` - Container orchestration
@@ -47,6 +61,7 @@ The **Intelligent Document Processing and Knowledge Base** is a comprehensive, A
 - `requirements.txt` - Python dependencies
 - `package.json` - Node.js dependencies
 - Configuration files (`.env`, `alembic.ini`, etc.)
+- `scripts/` - Database initialization and seeding scripts
 
 ### Documentation Files (Reference only)
 - `docs/` - All documentation files
@@ -198,32 +213,59 @@ class Document(Base):
 ## Dependencies & Setup
 
 ### Backend Dependencies
-- FastAPI: Web framework
-- SQLAlchemy: ORM
-- Alembic: Database migrations
-- Celery: Background tasks
-- Redis: Caching and message broker
-- Pydantic: Data validation
-- Python-multipart: File uploads
-- PyJWT: JWT authentication
+- **FastAPI**: Web framework with async support
+- **SQLAlchemy 2.0**: Modern ORM with async support
+- **Alembic**: Database migrations
+- **Celery/Arq**: Background task processing
+- **Redis 7+**: Caching, message broker, rate limiting
+- **Pydantic**: Data validation and serialization
+- **LangChain**: RAG tooling and retrievers
+- **LangGraph**: Stateful graph orchestration
+- **CrewAI**: Multi-agent team coordination
+- **Elasticsearch 8+**: Hybrid search and aggregations
+- **pgvector**: Vector similarity search
+- **Python-multipart**: File uploads
+- **PyJWT**: JWT authentication
+- **sentence-transformers**: Embedding generation
+- **spacy**: NLP processing
 
 ### Frontend Dependencies
-- Next.js: React framework
-- TypeScript: Type safety
-- Tailwind CSS: Styling
-- React Hook Form: Form management
-- Axios: HTTP client
-- React Query: Data fetching
-- Zustand: State management
+- **Next.js 14+**: React framework with App Router and server actions
+- **TypeScript 5+**: Type safety and development experience
+- **Tailwind CSS 3+**: Utility-first styling with design tokens
+- **React Hook Form**: Form management and validation
+- **TanStack Query**: Server state management and caching
+- **Zustand**: Local UX state management
+- **Socket.IO**: Real-time communication for streaming answers
+- **Radix UI**: Accessible component primitives
+- **shadcn/ui**: Component library with design tokens
 
 ### Environment Variables
 ```bash
 # Backend
 DATABASE_URL=postgresql://user:password@localhost/dbname
 REDIS_URL=redis://localhost:6379
+ELASTICSEARCH_URL=http://localhost:9200
 SECRET_KEY=your-secret-key
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=60
+
+# AI/ML Providers
+OPENAI_API_KEY=your-openai-key
+ANTHROPIC_API_KEY=your-anthropic-key
+EMBEDDING_MODEL=text-embedding-3-large
+
+# RAG Pipeline Configuration
+DEFAULT_EMBEDDING_MODEL=text-embedding-3-large
+DEFAULT_LLM_MODEL=gpt-4-turbo-preview
+CITATION_CONFIDENCE_THRESHOLD=85
+MAX_CHUNK_SIZE=1000
+CHUNK_OVERLAP=200
+
+# Storage
+S3_BUCKET=your-s3-bucket
+S3_ACCESS_KEY=your-s3-key
+S3_SECRET_KEY=your-s3-secret
 
 # Frontend
 NEXT_PUBLIC_API_URL=http://localhost:8000
@@ -235,12 +277,13 @@ NEXT_PUBLIC_WS_URL=ws://localhost:8000/ws
 ### Local Development Setup
 1. Clone the repository
 2. Copy `env.example` to `.env` and configure variables
-3. Run `docker-compose up -d` for database and Redis
+3. Run `docker-compose up -d` for database, Redis, and Elasticsearch
 4. Install backend dependencies: `pip install -r requirements.txt`
 5. Install frontend dependencies: `cd frontend && npm install`
 6. Run database migrations: `alembic upgrade head`
 7. Start backend: `uvicorn app.main:app --reload`
 8. Start frontend: `cd frontend && npm run dev`
+9. Access DocuMind™ at `http://localhost:3000`
 
 ### Development Commands
 ```bash
@@ -260,36 +303,46 @@ npm run lint                           # Lint code
 ### Testing Strategy
 - **Unit tests**: Test individual functions and components
 - **Integration tests**: Test API endpoints and database operations
-- **End-to-end tests**: Test complete user workflows
-- **Performance tests**: Test system under load
+- **End-to-end tests**: Test complete user workflows with Playwright
+- **Performance tests**: Test system under load with Locust
+- **RAG Pipeline tests**: Test retrieval accuracy and citation quality
+- **Security tests**: Test authentication, authorization, and data isolation
 
 ## Contextual Knowledge
 
 ### Business Logic
-- Document processing follows a specific workflow: upload → classify → extract → validate → store
-- Validation tasks are created when confidence scores are below threshold
-- Knowledge base search uses semantic similarity and keyword matching
-- File storage supports multiple formats with automatic conversion
+- **RAG Pipeline**: Document processing follows: upload → OCR/layout → chunk → embed → index → retrieve → rerank → generate → cite
+- **Validation Workflow**: Low-confidence spans trigger human-in-the-loop validation tasks
+- **Hybrid Search**: Combines dense vector similarity (pgvector) with sparse BM25 (Elasticsearch) using reciprocal rank fusion
+- **Multi-Agent Orchestration**: CrewAI coordinates specialized agents for complex workflows
+- **Citation Management**: Every generated answer includes verifiable source citations with span references
+- **Multi-Tenant Isolation**: Row-level security ensures complete tenant data isolation
+- **Document Chunking**: Intelligent text splitting with metadata preservation and deduplication
 
 ### Domain Rules
-- Users can only access documents they uploaded or have been shared with
-- Processing queue prioritizes documents based on user role and document type
-- Validation tasks are automatically assigned to available users
-- Search results are ranked by relevance and recency
+- **Multi-Tenant Isolation**: Users can only access documents within their tenant/organization
+- **Processing Priority**: Documents prioritized by user role, document type, and business criticality
+- **Validation Assignment**: Low-confidence results automatically assigned to qualified validators
+- **Search Ranking**: Results ranked by relevance (hybrid score), recency, and citation quality
+- **Citation Requirements**: All generated answers must include ≥1 valid citation with source verification
+- **Tenant Limits**: Configurable limits for users, documents, and storage per tenant
+- **Role-Based Access**: Admin, User, Validator, and Viewer roles with different permissions
 
 ### Technical Constraints
-- File upload size limit: 50MB per file
-- Supported formats: PDF, DOCX, JPG, PNG, TIFF
-- Processing timeout: 30 minutes per document
-- Rate limiting: 100 requests per minute per user
-- Database connection pool: 20 connections
+- **File Upload**: 50MB per file, supports PDF, DOCX, JPG, PNG, TIFF, plus code docs and emails
+- **Processing Timeout**: 30 minutes per document for complex workflows
+- **Rate Limiting**: 100 requests per minute per user (Redis sliding window)
+- **Database**: PostgreSQL 15+ with pgvector, 20 connection pool
+- **Search**: Elasticsearch 8+ for hybrid search, pgvector for vector similarity
+- **Performance Targets**: <700ms retrieval, <2.0s first token, P95 <4s end-to-end
 
 ### Security Considerations
-- All file uploads are scanned for malware
-- Sensitive data is encrypted at rest
-- API endpoints require authentication
-- CORS is configured for specific origins only
-- Audit logs track all user actions
+- **Multi-Tenant Security**: Row-level security and schema isolation per tenant
+- **Encryption**: AES-256 at rest, TLS 1.2+ in transit, KMS-managed keys
+- **PII Handling**: Automatic detection and redaction of sensitive data
+- **API Security**: JWT authentication, scoped API keys, rate limiting
+- **Audit Logging**: Immutable audit trail with correlation IDs
+- **Compliance**: SOC2-ready controls, GDPR compliance, enterprise SSO support
 
 ## Examples
 
@@ -437,5 +490,118 @@ def get_documents(db, user):
 - Add tests for new functionality
 - Optimize performance bottlenecks
 - Enhance security measures
+
+## Patch Protocol
+
+### Diff Format Requirements
+All code changes must be provided in unified diff format:
+
+```diff
+// File: path/to/file.ts
+- // Old code or comment
++ // New code or comment
+```
+
+### Commit Message Format
+Follow conventional commit format:
+```
+type(scope): description
+
+[optional body]
+
+[optional footer]
+```
+
+**Types**: feat, fix, docs, style, refactor, test, chore
+**Scope**: frontend, backend, api, ui, auth, etc.
+
+**Examples**:
+```
+feat(frontend): add document upload component
+fix(api): resolve authentication token validation
+docs(readme): update installation instructions
+```
+
+## Failure-Mode Playbook
+
+### Common Issues and Solutions
+
+#### Schema Mismatch
+**Problem**: Frontend types don't match backend schemas
+**Solution**: 
+1. Update shared types in `packages/types/`
+2. Regenerate API client types
+3. Update both frontend and backend schemas
+
+#### Failing Tests
+**Problem**: Tests fail after code changes
+**Solution**:
+1. Run `npm test` or `pytest` locally
+2. Check test environment setup
+3. Update test fixtures if needed
+4. Verify mock implementations
+
+#### Missing Environment Variables
+**Problem**: Application fails due to missing env vars
+**Solution**:
+1. Check `.env.example` for required variables
+2. Copy missing variables to `.env.local`
+3. Verify environment-specific configurations
+4. Update documentation if new vars are needed
+
+#### Database Migration Issues
+**Problem**: Database schema out of sync
+**Solution**:
+1. Run `alembic upgrade head`
+2. Check migration files for conflicts
+3. Reset database if in development
+4. Create new migration if needed
+
+#### Build Failures
+**Problem**: Frontend or backend build fails
+**Solution**:
+1. Check dependency versions in package.json/requirements.txt
+2. Clear node_modules and reinstall
+3. Check TypeScript compilation errors
+4. Verify import paths and aliases
+
+#### Docker Issues
+**Problem**: Containerized environment not working
+**Solution**:
+1. Rebuild Docker images: `docker-compose build`
+2. Check port conflicts
+3. Verify volume mounts
+4. Check container logs: `docker-compose logs`
+
+## START/END Guardrails
+
+### File Boundaries
+Use these markers in editable files to define safe editing zones:
+
+```typescript
+// START: EDITABLE ZONE
+// This section can be safely modified by Claude
+export const MyComponent = () => {
+  // Implementation here
+};
+// END: EDITABLE ZONE
+
+// DO NOT EDIT BELOW THIS LINE
+// Infrastructure and configuration code
+```
+
+### Protected Sections
+- Database models (use migrations instead)
+- Core configuration files
+- Docker and deployment configs
+- Package.json dependencies (discuss changes first)
+- Environment-specific settings
+
+### Safe Editing Zones
+- API endpoint implementations
+- Service layer business logic
+- Frontend components and pages
+- Test files and fixtures
+- Documentation updates
 
 This guide ensures consistent, high-quality code development and effective collaboration between human developers and AI assistants.

@@ -34,6 +34,19 @@ torch==2.1.1
 numpy==1.24.3
 pandas==2.1.4
 
+# RAG Pipeline & AI Orchestration
+langchain==0.1.0
+langgraph==0.0.20
+crewai==0.11.0
+langchain-openai==0.0.5
+langchain-anthropic==0.0.5
+langchain-community==0.0.10
+
+# Vector Database & Embeddings
+pgvector==0.2.4
+sentence-transformers==2.2.2
+spacy==3.7.2
+
 # Search & Indexing
 elasticsearch==8.11.0
 elasticsearch-dsl==8.11.0
