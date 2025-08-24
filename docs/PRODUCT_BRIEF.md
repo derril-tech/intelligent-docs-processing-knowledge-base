@@ -1,7 +1,7 @@
 # Product Brief
 
 ⚠️ IMPORTANT  
-This document defines the **product’s purpose, users, and goals**.  
+This document defines the **product's purpose, users, and goals**.  
 The infrastructure plan (`INFRASTRUCTURE_PLAN.md`) must always be aligned with this brief.
 
 ---
@@ -62,6 +62,8 @@ AI Document Intelligence & RAG Knowledge OS
 * **Indexing Service**: embedding generation, hybrid rank (BM25 + vector), synonym expansion, de-dup.
 * **Answering Service (LangGraph)**: graph nodes for Retrieve → Rerank → Ground → Generate → Guard → Cite.
 * **Validation/Feedback Service**: HITL queue, annotation storage, model feedback loop.
+* **Real-time Service (WebSocket)**: connection management, event routing, tenant isolation.
+* **Connector Service**: external integrations (Google Drive, SharePoint, Confluence, Slack, GitHub).
 
 ### 3.2 Data & Search
 
@@ -80,16 +82,34 @@ AI Document Intelligence & RAG Knowledge OS
 * **Generation**: **LangGraph** node calling GPT‑4 or Claude (tool-choice) with **source injection** & **context windows**.
 * **Post-Gen**: factuality verifier (self-check + entailment), citation validator (must point to spans), redaction pass.
 
-### 3.4 Multi‑Agent Orchestration (CrewAI - optional)
+### 3.4 Real-time Communication (WebSocket)
+
+* **Connection Management**: Tenant-isolated WebSocket connections with JWT authentication.
+* **Event Routing**: Predefined event types for document processing, validation, chat, and sync.
+* **Broadcasting**: Utility functions for tenant-specific and system-wide notifications.
+* **Error Handling**: Automatic reconnection with exponential backoff.
+* **Integration**: Seamless integration with FastAPI router.
+
+### 3.5 Source Connectors Framework
+
+* **Abstract Base Class**: Common interface for all external service connectors.
+* **Connector Manager**: Centralized registration and sync management.
+* **OAuth2 Integration**: Secure authentication flows for external services.
+* **Rate Limiting**: Intelligent rate limiting and retry logic.
+* **Real-time Updates**: WebSocket notifications for sync progress.
+* **Supported Services**: Google Drive, SharePoint, Confluence, Slack, GitHub.
+
+### 3.6 Multi‑Agent Orchestration (CrewAI - optional)
 
 * **Agents**: Ingestion Agent (OCR/layout), Research Agent (query planning), Synthesis Agent (answer drafting), Compliance Agent (redaction/policy), Export Agent (reporting).
 * **Coordinator**: **CrewAI** hands off to **LangGraph** nodes for deterministic steps; retries & backoff defined per edge; circuit breakers on tool errors.
 
-### 3.5 Security & Compliance
+### 3.7 Security & Compliance
 
 * Tenant isolation (schema-per-tenant or row RLS), AES‑256 at rest, TLS 1.2+, KMS-managed keys.
 * Secrets via environment & rotation; scoped API keys per connector.
 * DLP/PII policies: regex + ML detectors; automatic hash/partial redact; audit log with immutable store.
+* WebSocket authentication: JWT token validation for real-time connections.
 
 ---
 
@@ -98,45 +118,43 @@ AI Document Intelligence & RAG Knowledge OS
 * **LLMs**: OpenAI GPT‑4, Anthropic Claude (provider router based on task: analysis vs. summarization).
 * **OCR**: Tesseract + optional AWS Textract/Google Vision.
 * **Connectors**: S3/GCS/Azure Blob, Google Drive, SharePoint/OneDrive, Confluence, Slack, GitHub.
-* **Monitoring**: Prometheus metrics + Grafana; Sentry; OpenTelemetry traces.
+* **Real-time**: WebSocket server with tenant isolation and event routing.
+* **Monitoring**: Prometheus, Grafana, Sentry, structured logging.
 
 ---
 
-## 5) DevOps & Deployment
+## 5) Infrastructure Status
 
-* **Containers**: Docker; multi-stage images; health checks `/healthz`.
-* **Environments**: Vercel (FE), Render/Kubernetes (BE); autoscale workers.
-* **CI/CD**: GitHub Actions → tests (pytest + coverage), mypy, ruff, Playwright e2e → deploy.
-* **Observability**: JSON logs with correlation IDs; RED metrics; alerting SLOs.
+### ✅ **Completed Infrastructure (80%)**
+- **WebSocket Server**: Complete with connection management, tenant isolation, and event routing
+- **Advanced RAG Pipeline**: Complete with LangGraph workflow, reranker interfaces, and hybrid retrieval
+- **Source Connectors Framework**: Complete with abstract base classes, connector manager, and multiple service support
+- **API Integration**: WebSocket endpoint integrated into main API router
+- **Multi-tenant Security**: Row-level security and tenant isolation
+- **Health Monitoring**: Comprehensive health checks for all services
 
----
-
-## 6) Success Criteria (Measurable)
-
-* **Answer Quality**: ≥ **95%** answers contain **≥1 valid citation**; hallucination rate < **2%** (HITL sampled).
-* **Latency**: P50 **<700ms** retrieval, **<2.0s** end‑to‑end streaming first token; P95 **<4s**.
-* **Scale**: 10k concurrent chats; 1M docs; 10M chunks; sustained 500 rps on retrieval tier.
-* **Uptime**: **99.9%** monthly; error budget tracked; zero data cross‑tenant incidents.
-* **Accessibility**: Lighthouse ≥ **95**, WCAG 2.1 AA verified patterns.
-* **Security**: 0 critical vulns; all secrets rotated quarterly; SOC2‑ready controls mapped.
-* **Testing**: > **90%** backend unit/integration; Playwright e2e on key flows; chaos tests on graph retries.
+### 🔄 **Claude Implementation Tasks (20%)**
+- **Real-time Features**: WebSocket event handlers for document processing, chat streaming, validation notifications
+- **Advanced RAG**: Cross-encoder reranking, reciprocal rank fusion, LLM generation with citations
+- **External Integrations**: OAuth2 flows and API integrations for external services
+- **Multi-Agent Workflows**: CrewAI agents for complex document processing
 
 ---
 
-## 7) Execution Prompts for Claude (Build Order)
+## 6) Performance Targets
 
-1. **Project Setup & Architecture** – Scaffold FE/BE; envs; keys; base CI; connectors.
-2. **Core Backend (LangChain + LangGraph)** – Ingestion workers, vector+BM25, graph orchestration, REST/WebSocket.
-3. **Frontend Components** – Ingest Studio, Validation Queue, Ask Workspace, Admin Console.
-4. **AI Integration & Features** – Provider router, rerankers, guardrails, multi‑agent (CrewAI) paths.
-5. **Deployment & Optimization** – Autoscale, caching, perf budgets, monitoring, SLO alerts.
+* **RAG Query Response**: < 2s for complex queries with citations
+* **File Upload**: < 5s for 50MB files
+* **WebSocket Events**: < 100ms for real-time updates
+* **Concurrent Users**: 10,000+ simultaneous users
+* **Document Processing**: 1M+ documents per month
+* **Uptime**: 99.9% availability with comprehensive monitoring
 
 ---
 
-## 8) Roadmap (60–90 Days)
+## 7) Success Metrics
 
-* v1: Hybrid retrieval, citations, HITL validation, exports.
-* v1.1: Domain adapters (legal/finance), semantic filters, glossary.
-* v1.2: Query planner (ReAct), few‑shot memory, enterprise SSO, FGAC.
-
-> **Outcome:** A production‑ready, evidence‑driven RAG Knowledge OS built on **LangChain + LangGraph**, optionally **CrewAI** for multi‑agent workflows—meeting enterprise bar for **speed, accuracy, and trust**.
+* **Technical**: < 2s RAG response time, 99.9% uptime, zero security vulnerabilities
+* **User Experience**: Intuitive interface, fast loading, seamless real-time updates
+* **Business**: High adoption, significant time savings, enterprise-scale scalability
+* **Compliance**: Full SOC2, GDPR compliance with comprehensive audit logging

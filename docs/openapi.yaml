@@ -1,16 +1,16 @@
 openapi: 3.1.0
 info:
-  title: Intelligent Docs Processing Knowledge Base API
-  description: API for document processing, knowledge base management, and validation workflows
+  title: DocuMind™ API - Intelligent Document Processing and Knowledge Base
+  description: API for document processing, knowledge base management, validation workflows, real-time communication, and advanced RAG pipeline
   version: 1.0.0
   contact:
     name: API Support
-    email: support@intelligentdocs.com
+    email: support@documind.com
 
 servers:
   - url: http://localhost:8000
     description: Development server
-  - url: https://api.intelligentdocs.com
+  - url: https://api.documind.com
     description: Production server
 
 components:
@@ -37,6 +37,9 @@ components:
         role:
           type: string
           enum: [admin, user, validator, viewer]
+        tenant_id:
+          type: string
+          description: Multi-tenant isolation
         is_active:
           type: boolean
         created_at:
@@ -72,6 +75,9 @@ components:
         uploaded_by:
           type: string
           format: uuid
+        tenant_id:
+          type: string
+          description: Multi-tenant isolation
         created_at:
           type: string
           format: date-time
@@ -98,35 +104,50 @@ components:
           type: integer
         total_steps:
           type: integer
-        step_name:
-          type: string
         percentage:
           type: number
           minimum: 0
           maximum: 100
+        message:
+          type: string
 
     DocumentMetadata:
       type: object
       properties:
-        author:
+        category:
           type: string
-        creation_date:
-          type: string
-          format: date
-        modification_date:
-          type: string
-          format: date
-        page_count:
-          type: integer
-        language:
-          type: string
-        document_type:
-          type: string
-          enum: [pdf, docx, txt, csv, image, presentation, spreadsheet, other]
         confidence_score:
           type: number
           minimum: 0
           maximum: 1
+        extracted_data:
+          type: object
+        ocr_text:
+          type: string
+
+    ProcessingJob:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        document_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, processing, completed, failed]
+        priority:
+          type: string
+          enum: [low, normal, high, urgent]
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+        error_message:
+          type: string
 
     ValidationTask:
       type: object
@@ -137,28 +158,354 @@ components:
         document_id:
           type: string
           format: uuid
+        field_name:
+          type: string
+        extracted_value:
+          type: string
+        confidence_score:
+          type: number
+          minimum: 0
+          maximum: 1
+        validation_type:
+          type: string
+          enum: [amount_verification, date_verification, entity_verification]
+        status:
+          type: string
+          enum: [pending, in_progress, approved, rejected, needs_review]
         assigned_to:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          description: Multi-tenant isolation
+        created_at:
+          type: string
+          format: date-time
+        resolved_at:
+          type: string
+          format: date-time
+
+    # RAG Pipeline Schemas
+    RAGQuery:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          description: Natural language query
+        filters:
+          type: object
+          properties:
+            document_types:
+              type: array
+              items:
+                type: string
+            date_range:
+              type: object
+              properties:
+                start:
+                  type: string
+                  format: date
+                end:
+                  type: string
+                  format: date
+        pipeline_config:
+          type: object
+          properties:
+            retrieval_method:
+              type: string
+              enum: [hybrid, vector, keyword]
+              default: hybrid
+            reranker_type:
+              type: string
+              enum: [cross_encoder, lightweight_llm]
+              default: cross_encoder
+            fusion_method:
+              type: string
+              enum: [reciprocal_rank, weighted_sum]
+              default: reciprocal_rank
+            max_results:
+              type: integer
+              default: 10
+
+    RAGResponse:
+      type: object
+      properties:
+        answer:
+          type: string
+          description: Generated answer with citations
+        confidence_score:
+          type: number
+          minimum: 0
+          maximum: 1
+        citations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Citation'
+        retrieval_stats:
+          $ref: '#/components/schemas/RetrievalStats'
+
+    Citation:
+      type: object
+      properties:
+        document_id:
+          type: string
+          format: uuid
+        document_title:
+          type: string
+        span:
+          type: string
+          description: Text span from source document
+        page:
+          type: integer
+        relevance_score:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    RetrievalStats:
+      type: object
+      properties:
+        total_documents_retrieved:
+          type: integer
+        reranked_documents:
+          type: integer
+        processing_time_ms:
+          type: integer
+
+    RAGConfig:
+      type: object
+      properties:
+        embedding_model:
+          type: string
+          default: text-embedding-3-large
+        reranker_model:
+          type: string
+          default: cross-encoder/ms-marco-MiniLM-L-6-v2
+        fusion_method:
+          type: string
+          enum: [reciprocal_rank, weighted_sum]
+          default: reciprocal_rank
+        max_chunk_size:
+          type: integer
+          default: 1000
+        chunk_overlap:
+          type: integer
+          default: 200
+        citation_threshold:
+          type: number
+          minimum: 0
+          maximum: 1
+          default: 0.85
+
+    RAGAnalytics:
+      type: object
+      properties:
+        query_stats:
+          type: object
+          properties:
+            total_queries:
+              type: integer
+            average_response_time_ms:
+              type: integer
+            success_rate:
+              type: number
+              minimum: 0
+              maximum: 1
+        retrieval_stats:
+          type: object
+          properties:
+            average_documents_retrieved:
+              type: number
+            average_relevance_score:
+              type: number
+              minimum: 0
+              maximum: 1
+            reranking_improvement:
+              type: number
+        citation_stats:
+          type: object
+          properties:
+            average_citations_per_answer:
+              type: number
+            citation_accuracy:
+              type: number
+              minimum: 0
+              maximum: 1
+            user_feedback_score:
+              type: number
+              minimum: 1
+              maximum: 5
+
+    # Source Connectors Schemas
+    Connector:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum: [google_drive, sharepoint, confluence, slack, github]
+        status:
+          type: string
+          enum: [connected, disconnected, error]
+        last_sync:
+          type: string
+          format: date-time
+        documents_synced:
+          type: integer
+        tenant_id:
+          type: string
+          description: Multi-tenant isolation
+
+    ConnectorSetup:
+      type: object
+      required:
+        - name
+        - credentials
+        - sync_config
+      properties:
+        name:
+          type: string
+        credentials:
+          type: object
+          properties:
+            client_id:
+              type: string
+            client_secret:
+              type: string
+        sync_config:
+          type: object
+          properties:
+            folders:
+              type: array
+              items:
+                type: string
+            file_types:
+              type: array
+              items:
+                type: string
+            sync_frequency:
+              type: string
+              enum: [manual, hourly, daily, weekly]
+
+    OAuthURL:
+      type: object
+      properties:
+        auth_url:
+          type: string
+          format: uri
+        state:
+          type: string
+
+    SyncResponse:
+      type: object
+      properties:
+        sync_id:
+          type: string
+        status:
+          type: string
+          enum: [started, processing, completed, failed]
+        estimated_completion:
+          type: string
+          format: date-time
+
+    SyncStatus:
+      type: object
+      properties:
+        sync_id:
+          type: string
+        status:
+          type: string
+          enum: [started, processing, completed, failed]
+        documents_processed:
+          type: integer
+        documents_added:
+          type: integer
+        documents_updated:
+          type: integer
+        documents_deleted:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: string
+
+    # WebSocket Event Schemas
+    WebSocketEvent:
+      type: object
+      properties:
+        event:
+          type: string
+          enum: [document_processing_update, validation_task_created, chat_response, chat_response_complete, connector_sync_update, user_status_update, system_notification]
+        data:
+          type: object
+
+    DocumentProcessingUpdate:
+      type: object
+      properties:
+        document_id:
           type: string
           format: uuid
         status:
           type: string
-          enum: [pending, in_progress, approved, rejected, needs_review]
-        priority:
+          enum: [processing, completed, failed]
+        progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+        message:
           type: string
-          enum: [low, medium, high, critical]
-        task_type:
-          type: string
-          enum: [content_accuracy, entity_recognition, relationship_validation, data_quality, compliance_check, custom_validation]
-        due_date:
-          type: string
-          format: date-time
-        created_at:
-          type: string
-          format: date-time
-        updated_at:
+        timestamp:
           type: string
           format: date-time
 
+    ChatResponse:
+      type: object
+      properties:
+        session_id:
+          type: string
+        message_id:
+          type: string
+        content:
+          type: string
+        is_complete:
+          type: boolean
+        citations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Citation'
+        timestamp:
+          type: string
+          format: date-time
+
+    # Health Check Schema
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        timestamp:
+          type: number
+          format: double
+        services:
+          type: object
+          properties:
+            database:
+              type: string
+              enum: [healthy, unhealthy]
+            redis:
+              type: string
+              enum: [healthy, unhealthy]
+            elasticsearch:
+              type: string
+              enum: [healthy, unhealthy]
+
+    # Common Response Schemas
     ApiResponse:
       type: object
       properties:
@@ -167,8 +514,6 @@ components:
         data:
           type: object
         message:
-          type: string
-        error:
           type: string
 
     PaginatedResponse:
@@ -180,44 +525,43 @@ components:
           type: integer
         page:
           type: integer
-        size:
+        limit:
           type: integer
         pages:
           type: integer
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+
 paths:
+  # Health Check
   /health:
     get:
-      summary: Health check endpoint
-      description: Returns the health status of the API and its dependencies
+      summary: Health check
+      description: Comprehensive health check for all services
       responses:
         '200':
-          description: API is healthy
+          description: Health status
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: "healthy"
-                  timestamp:
-                    type: string
-                    format: date-time
-                  services:
-                    type: object
-                    properties:
-                      database:
-                        type: string
-                      redis:
-                        type: string
-                      elasticsearch:
-                        type: string
+                $ref: '#/components/schemas/HealthStatus'
 
-  /auth/login:
+  # Authentication
+  /api/v1/auth/login:
     post:
       summary: User login
-      description: Authenticate user and return JWT tokens
+      description: Authenticate user and return JWT token
       requestBody:
         required: true
         content:
@@ -233,21 +577,24 @@ paths:
                   format: email
                 password:
                   type: string
-                  minLength: 8
-                remember_me:
-                  type: boolean
-                  default: false
       responses:
         '200':
           description: Login successful
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse'
-        '401':
-          description: Invalid credentials
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  token_type:
+                    type: string
+                  expires_in:
+                    type: integer
+                  user:
+                    $ref: '#/components/schemas/User'
 
-  /auth/register:
+  /api/v1/auth/register:
     post:
       summary: User registration
       description: Register a new user account
@@ -259,23 +606,15 @@ paths:
               type: object
               required:
                 - email
-                - username
-                - full_name
                 - password
-                - confirm_password
+                - full_name
               properties:
                 email:
                   type: string
                   format: email
-                username:
-                  type: string
-                  minLength: 3
-                full_name:
-                  type: string
                 password:
                   type: string
-                  minLength: 8
-                confirm_password:
+                full_name:
                   type: string
       responses:
         '201':
@@ -283,14 +622,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse'
-        '400':
-          description: Validation error
+                $ref: '#/components/schemas/User'
 
-  /documents:
+  # Documents
+  /api/v1/documents:
     get:
       summary: List documents
-      description: Retrieve a paginated list of documents
+      description: Retrieve list of documents with pagination and filtering
       security:
         - BearerAuth: []
       parameters:
@@ -299,7 +637,7 @@ paths:
           schema:
             type: integer
             default: 1
-        - name: size
+        - name: limit
           in: query
           schema:
             type: integer
@@ -308,7 +646,11 @@ paths:
           in: query
           schema:
             type: string
-            enum: [pending, processing, completed, failed, cancelled]
+            enum: [pending, processing, completed, failed]
+        - name: category
+          in: query
+          schema:
+            type: string
         - name: search
           in: query
           schema:
@@ -328,9 +670,10 @@ paths:
                         items:
                           $ref: '#/components/schemas/Document'
 
+  /api/v1/documents/upload:
     post:
       summary: Upload document
-      description: Upload and process a new document
+      description: Upload a new document for processing
       security:
         - BearerAuth: []
       requestBody:
@@ -339,34 +682,25 @@ paths:
           multipart/form-data:
             schema:
               type: object
-              required:
-                - file
-                - title
               properties:
                 file:
                   type: string
                   format: binary
-                title:
+                metadata:
                   type: string
-                description:
-                  type: string
-                tags:
-                  type: string
-                knowledge_base_id:
-                  type: string
-                  format: uuid
+                  description: JSON string with document metadata
       responses:
         '201':
           description: Document uploaded successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse'
+                $ref: '#/components/schemas/Document'
 
-  /documents/{document_id}:
+  /api/v1/documents/{document_id}:
     get:
       summary: Get document details
-      description: Retrieve detailed information about a specific document
+      description: Retrieve specific document details and extracted data
       security:
         - BearerAuth: []
       parameters:
@@ -382,12 +716,222 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse'
+                $ref: '#/components/schemas/Document'
 
-  /validation/tasks:
+  # RAG Pipeline
+  /api/v1/rag/query:
+    post:
+      summary: Execute RAG query
+      description: Execute advanced RAG pipeline with hybrid retrieval and reranking
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RAGQuery'
+      responses:
+        '200':
+          description: RAG response with citations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RAGResponse'
+
+  /api/v1/rag/config:
+    get:
+      summary: Get RAG configuration
+      description: Get current RAG pipeline configuration
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: RAG configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RAGConfig'
+
+    put:
+      summary: Update RAG configuration
+      description: Update RAG pipeline configuration
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RAGConfig'
+      responses:
+        '200':
+          description: RAG configuration updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RAGConfig'
+
+  /api/v1/rag/analytics:
+    get:
+      summary: Get RAG analytics
+      description: Get RAG pipeline performance analytics
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: RAG analytics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RAGAnalytics'
+
+  # Source Connectors
+  /api/v1/connectors:
+    get:
+      summary: List connectors
+      description: List all configured source connectors
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of connectors
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  connectors:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Connector'
+
+  /api/v1/connectors/{connector_type}/auth/url:
+    get:
+      summary: Get OAuth URL
+      description: Get OAuth2 authorization URL for connector
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: connector_type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [google_drive, sharepoint, confluence, slack, github]
+      responses:
+        '200':
+          description: OAuth URL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthURL'
+
+  /api/v1/connectors/{connector_type}/connect:
+    post:
+      summary: Connect connector
+      description: Connect to a source connector
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: connector_type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [google_drive, sharepoint, confluence, slack, github]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConnectorSetup'
+      responses:
+        '201':
+          description: Connector connected successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Connector'
+
+  /api/v1/connectors/{connector_id}/sync:
+    get:
+      summary: Trigger sync
+      description: Trigger manual sync for a connector
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: connector_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Sync started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncResponse'
+
+  /api/v1/connectors/{connector_id}/sync/{sync_id}/status:
+    get:
+      summary: Get sync status
+      description: Get sync status for a connector
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: connector_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: sync_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Sync status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncStatus'
+
+  # Processing
+  /api/v1/processing/queue:
+    get:
+      summary: Get processing queue
+      description: Get current processing queue status
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Processing queue status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pending:
+                    type: integer
+                  processing:
+                    type: integer
+                  completed_today:
+                    type: integer
+                  failed_today:
+                    type: integer
+                  queue_items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProcessingJob'
+
+  # Validation
+  /api/v1/validation/tasks:
     get:
       summary: List validation tasks
-      description: Retrieve a paginated list of validation tasks
+      description: Get validation tasks requiring human review
       security:
         - BearerAuth: []
       parameters:
@@ -426,7 +970,7 @@ paths:
                         items:
                           $ref: '#/components/schemas/ValidationTask'
 
-  /validation/tasks/{task_id}:
+  /api/v1/validation/tasks/{task_id}:
     get:
       summary: Get validation task details
       description: Retrieve detailed information about a specific validation task
@@ -445,7 +989,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse'
+                $ref: '#/components/schemas/ValidationTask'
 
     put:
       summary: Update validation task
@@ -494,3 +1038,158 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
+
+  /api/v1/validation/tasks/{task_id}/approve:
+    post:
+      summary: Approve validation task
+      description: Approve a validation task
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                approved_value:
+                  type: string
+                notes:
+                  type: string
+      responses:
+        '200':
+          description: Validation task approved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  /api/v1/validation/tasks/{task_id}/reject:
+    post:
+      summary: Reject validation task
+      description: Reject a validation task and provide corrected value
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                corrected_value:
+                  type: string
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Validation task rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  # Knowledge Base
+  /api/v1/knowledge/search:
+    get:
+      summary: Search knowledge base
+      description: Search the knowledge base using natural language queries
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: filters
+          in: query
+          schema:
+            type: string
+            description: JSON string with filters
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        document_id:
+                          type: string
+                          format: uuid
+                        title:
+                          type: string
+                        snippet:
+                          type: string
+                        relevance_score:
+                          type: number
+                          minimum: 0
+                          maximum: 1
+                        extracted_data:
+                          type: object
+                  total_results:
+                    type: integer
+                  query:
+                    type: string
+
+  /api/v1/knowledge/analytics:
+    get:
+      summary: Get knowledge base analytics
+      description: Get analytics and insights from the knowledge base
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Knowledge base analytics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_documents:
+                    type: integer
+                  documents_by_category:
+                    type: object
+                  processing_stats:
+                    type: object
+                    properties:
+                      completed:
+                        type: integer
+                      failed:
+                        type: integer
+                      pending:
+                        type: integer
+                  extraction_accuracy:
+                    type: number
+                    minimum: 0
+                    maximum: 1
+
+# WebSocket Endpoint (not part of OpenAPI spec but documented here)
+# ws://localhost:8000/ws
+# Authentication: JWT token in query parameter
+# Events: document_processing_update, validation_task_created, chat_response, chat_response_complete, connector_sync_update, user_status_update, system_notification

@@ -1,7 +1,7 @@
 # API Specification
 
 ## Overview
-This document outlines the API endpoints, data models, and integration patterns for the Intelligent Document Processing and Knowledge Base system.
+This document outlines the API endpoints, data models, and integration patterns for the Intelligent Document Processing and Knowledge Base system, including real-time WebSocket communication, Advanced RAG pipeline, and Source Connectors.
 
 ## Base URL
 - Development: `http://localhost:8000`
@@ -284,6 +284,365 @@ Reject a validation task and provide corrected value.
 }
 ```
 
+## Advanced RAG Pipeline Endpoints
+
+### RAG Query Endpoint
+
+#### POST /api/v1/rag/query
+Execute advanced RAG pipeline with hybrid retrieval and reranking.
+
+**Request Body:**
+```json
+{
+  "query": "What are the payment terms for web development services?",
+  "filters": {
+    "document_types": ["invoice", "contract"],
+    "date_range": {
+      "start": "2024-01-01",
+      "end": "2024-12-31"
+    }
+  },
+  "pipeline_config": {
+    "retrieval_method": "hybrid",
+    "reranker_type": "cross_encoder",
+    "fusion_method": "reciprocal_rank",
+    "max_results": 10
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "answer": "Based on the analyzed documents, the payment terms for web development services are 50% upfront and 50% upon completion. This is consistent across multiple contracts and invoices.",
+  "confidence_score": 0.92,
+  "citations": [
+    {
+      "document_id": 123,
+      "document_title": "Web Development Contract",
+      "span": "Payment terms: 50% upfront, 50% upon completion",
+      "page": 3,
+      "relevance_score": 0.95
+    },
+    {
+      "document_id": 456,
+      "document_title": "Invoice INV-2024-001",
+      "span": "Payment schedule: 50% deposit received",
+      "page": 1,
+      "relevance_score": 0.88
+    }
+  ],
+  "retrieval_stats": {
+    "total_documents_retrieved": 15,
+    "reranked_documents": 10,
+    "processing_time_ms": 750
+  }
+}
+```
+
+### RAG Pipeline Configuration
+
+#### GET /api/v1/rag/config
+Get current RAG pipeline configuration.
+
+**Response:**
+```json
+{
+  "embedding_model": "text-embedding-3-large",
+  "reranker_model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+  "fusion_method": "reciprocal_rank",
+  "max_chunk_size": 1000,
+  "chunk_overlap": 200,
+  "citation_threshold": 0.85
+}
+```
+
+#### PUT /api/v1/rag/config
+Update RAG pipeline configuration.
+
+**Request Body:**
+```json
+{
+  "embedding_model": "text-embedding-3-large",
+  "reranker_model": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+  "fusion_method": "weighted_sum",
+  "max_chunk_size": 1000,
+  "chunk_overlap": 200,
+  "citation_threshold": 0.85
+}
+```
+
+### RAG Analytics
+
+#### GET /api/v1/rag/analytics
+Get RAG pipeline performance analytics.
+
+**Response:**
+```json
+{
+  "query_stats": {
+    "total_queries": 1250,
+    "average_response_time_ms": 750,
+    "success_rate": 0.98
+  },
+  "retrieval_stats": {
+    "average_documents_retrieved": 12.5,
+    "average_relevance_score": 0.87,
+    "reranking_improvement": 0.15
+  },
+  "citation_stats": {
+    "average_citations_per_answer": 2.3,
+    "citation_accuracy": 0.94,
+    "user_feedback_score": 4.2
+  }
+}
+```
+
+## Source Connectors Endpoints
+
+### Connector Management
+
+#### GET /api/v1/connectors
+List all configured source connectors.
+
+**Response:**
+```json
+{
+  "connectors": [
+    {
+      "id": "google_drive",
+      "name": "Google Drive",
+      "type": "google_drive",
+      "status": "connected",
+      "last_sync": "2024-01-15T10:30:00Z",
+      "documents_synced": 45
+    },
+    {
+      "id": "sharepoint",
+      "name": "SharePoint",
+      "type": "sharepoint",
+      "status": "disconnected",
+      "last_sync": null,
+      "documents_synced": 0
+    }
+  ]
+}
+```
+
+#### POST /api/v1/connectors/{connector_type}/connect
+Connect to a source connector.
+
+**Request Body:**
+```json
+{
+  "name": "My Google Drive",
+  "credentials": {
+    "client_id": "your-client-id",
+    "client_secret": "your-client-secret"
+  },
+  "sync_config": {
+    "folders": ["/Documents", "/Invoices"],
+    "file_types": ["pdf", "docx"],
+    "sync_frequency": "hourly"
+  }
+}
+```
+
+#### GET /api/v1/connectors/{connector_id}/sync
+Trigger manual sync for a connector.
+
+**Response:**
+```json
+{
+  "sync_id": "sync_123",
+  "status": "started",
+  "estimated_completion": "2024-01-15T11:30:00Z"
+}
+```
+
+#### GET /api/v1/connectors/{connector_id}/sync/{sync_id}/status
+Get sync status.
+
+**Response:**
+```json
+{
+  "sync_id": "sync_123",
+  "status": "completed",
+  "documents_processed": 15,
+  "documents_added": 8,
+  "documents_updated": 5,
+  "documents_deleted": 2,
+  "errors": []
+}
+```
+
+### Connector Authentication
+
+#### GET /api/v1/connectors/{connector_type}/auth/url
+Get OAuth2 authorization URL.
+
+**Response:**
+```json
+{
+  "auth_url": "https://accounts.google.com/oauth2/authorize?...",
+  "state": "random_state_string"
+}
+```
+
+#### POST /api/v1/connectors/{connector_type}/auth/callback
+Handle OAuth2 callback.
+
+**Request Body:**
+```json
+{
+  "code": "authorization_code",
+  "state": "random_state_string"
+}
+```
+
+## WebSocket Endpoints
+
+### WebSocket Connection
+**Endpoint**: `ws://localhost:8000/ws`
+
+**Authentication**: JWT token in query parameter or header
+
+**Connection URL**: `ws://localhost:8000/ws?token=<jwt_token>`
+
+### WebSocket Events
+
+#### Client to Server Events
+
+**Join Room**
+```json
+{
+  "event": "join_room",
+  "data": {
+    "room": "user_123",
+    "tenant_id": "tenant_456"
+  }
+}
+```
+
+**Subscribe to Document Updates**
+```json
+{
+  "event": "subscribe_document",
+  "data": {
+    "document_id": 123
+  }
+}
+```
+
+**Chat Message**
+```json
+{
+  "event": "chat_message",
+  "data": {
+    "message": "What are the payment terms?",
+    "session_id": "session_789"
+  }
+}
+```
+
+#### Server to Client Events
+
+**Document Processing Update**
+```json
+{
+  "event": "document_processing_update",
+  "data": {
+    "document_id": 123,
+    "status": "processing",
+    "progress": 75,
+    "message": "Extracting text from page 3 of 4",
+    "timestamp": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+**Validation Task Created**
+```json
+{
+  "event": "validation_task_created",
+  "data": {
+    "task_id": 789,
+    "document_id": 123,
+    "field_name": "amount",
+    "priority": "high",
+    "timestamp": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+**Chat Response (Streaming)**
+```json
+{
+  "event": "chat_response",
+  "data": {
+    "session_id": "session_789",
+    "message_id": "msg_456",
+    "content": "Based on the analyzed documents...",
+    "is_complete": false,
+    "citations": [],
+    "timestamp": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+**Chat Response Complete**
+```json
+{
+  "event": "chat_response_complete",
+  "data": {
+    "session_id": "session_789",
+    "message_id": "msg_456",
+    "citations": [
+      {
+        "document_id": 123,
+        "span": "Payment terms: 50% upfront",
+        "relevance_score": 0.95
+      }
+    ],
+    "confidence_score": 0.92,
+    "timestamp": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+**Connector Sync Update**
+```json
+{
+  "event": "connector_sync_update",
+  "data": {
+    "connector_id": "google_drive",
+    "sync_id": "sync_123",
+    "status": "processing",
+    "progress": 60,
+    "documents_processed": 9,
+    "timestamp": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+## Health Check Endpoints
+
+### GET /health
+Comprehensive health check for all services.
+
+**Response:**
+```json
+{
+  "status": "healthy",
+  "timestamp": 1705312200.123,
+  "services": {
+    "database": "healthy",
+    "redis": "healthy",
+    "elasticsearch": "healthy"
+  }
+}
+```
+
 ## Data Models
 
 ### User Model
@@ -293,6 +652,7 @@ Reject a validation task and provide corrected value.
   "email": "user@example.com",
   "full_name": "John Doe",
   "role": "user",
+  "tenant_id": "tenant_456",
   "created_at": "2024-01-15T10:30:00Z",
   "updated_at": "2024-01-15T10:30:00Z"
 }
@@ -310,7 +670,8 @@ Reject a validation task and provide corrected value.
   "file_size": 1024000,
   "uploaded_at": "2024-01-15T10:30:00Z",
   "processed_at": "2024-01-15T10:35:00Z",
-  "user_id": 1
+  "user_id": 1,
+  "tenant_id": "tenant_456"
 }
 ```
 
@@ -343,6 +704,49 @@ Reject a validation task and provide corrected value.
 }
 ```
 
+### RAG Query Model
+```json
+{
+  "id": "query_123",
+  "query": "What are the payment terms?",
+  "filters": {
+    "document_types": ["invoice", "contract"]
+  },
+  "pipeline_config": {
+    "retrieval_method": "hybrid",
+    "reranker_type": "cross_encoder",
+    "fusion_method": "reciprocal_rank"
+  },
+  "result": {
+    "answer": "Payment terms are 50% upfront...",
+    "confidence_score": 0.92,
+    "citations": []
+  },
+  "created_at": "2024-01-15T10:30:00Z"
+}
+```
+
+### Connector Model
+```json
+{
+  "id": "google_drive",
+  "name": "My Google Drive",
+  "type": "google_drive",
+  "status": "connected",
+  "credentials": {
+    "access_token": "encrypted_token",
+    "refresh_token": "encrypted_refresh_token"
+  },
+  "sync_config": {
+    "folders": ["/Documents"],
+    "file_types": ["pdf", "docx"],
+    "sync_frequency": "hourly"
+  },
+  "last_sync": "2024-01-15T10:30:00Z",
+  "documents_synced": 45
+}
+```
+
 ## Error Handling
 
 ### Standard Error Response
@@ -367,46 +771,25 @@ Reject a validation task and provide corrected value.
 - `PROCESSING_ERROR`: Document processing failed
 - `RATE_LIMIT_EXCEEDED`: Too many requests
 - `INTERNAL_SERVER_ERROR`: Server error
+- `WEBSOCKET_ERROR`: WebSocket connection error
+- `RAG_PIPELINE_ERROR`: RAG pipeline processing error
+- `CONNECTOR_ERROR`: Source connector error
 
 ## Rate Limiting
 - Authentication endpoints: 5 requests per minute
 - Document upload: 10 requests per minute
 - Search endpoints: 60 requests per minute
+- RAG endpoints: 30 requests per minute
+- WebSocket connections: 100 per minute
 - Other endpoints: 100 requests per minute
-
-## WebSocket Events
-
-### Real-time Processing Updates
-```json
-{
-  "event": "processing_update",
-  "data": {
-    "document_id": 123,
-    "status": "processing",
-    "progress": 75,
-    "message": "Extracting text from page 3 of 4"
-  }
-}
-```
-
-### Validation Task Notifications
-```json
-{
-  "event": "validation_task_created",
-  "data": {
-    "task_id": 789,
-    "document_id": 123,
-    "field_name": "amount",
-    "priority": "high"
-  }
-}
-```
 
 ## Integration Examples
 
 ### Python Client Example
 ```python
 import requests
+import websockets
+import json
 
 class DocumentAPI:
     def __init__(self, base_url, token):
@@ -425,17 +808,31 @@ class DocumentAPI:
             )
         return response.json()
     
-    def search_knowledge_base(self, query, filters=None):
-        params = {'q': query}
+    def rag_query(self, query, filters=None, pipeline_config=None):
+        data = {"query": query}
         if filters:
-            params['filters'] = json.dumps(filters)
+            data["filters"] = filters
+        if pipeline_config:
+            data["pipeline_config"] = pipeline_config
         
-        response = requests.get(
-            f"{self.base_url}/api/v1/knowledge-base/search",
-            params=params,
+        response = requests.post(
+            f"{self.base_url}/api/v1/rag/query",
+            json=data,
             headers=self.headers
         )
         return response.json()
+    
+    async def connect_websocket(self):
+        uri = f"ws://{self.base_url.replace('http://', '')}/ws?token={self.token}"
+        self.websocket = await websockets.connect(uri)
+        
+        # Subscribe to document updates
+        await self.websocket.send(json.dumps({
+            "event": "join_room",
+            "data": {"room": f"user_{self.user_id}"}
+        }))
+        
+        return self.websocket
 ```
 
 ### JavaScript Client Example
@@ -465,18 +862,33 @@ class DocumentAPI {
         return response.json();
     }
     
-    async searchKnowledgeBase(query, filters = null) {
-        const params = new URLSearchParams({ q: query });
-        if (filters) {
-            params.append('filters', JSON.stringify(filters));
-        }
+    async ragQuery(query, filters = null, pipelineConfig = null) {
+        const data = { query };
+        if (filters) data.filters = filters;
+        if (pipelineConfig) data.pipeline_config = pipelineConfig;
         
-        const response = await fetch(
-            `${this.baseUrl}/api/v1/knowledge-base/search?${params}`,
-            { headers: this.headers }
-        );
+        const response = await fetch(`${this.baseUrl}/api/v1/rag/query`, {
+            method: 'POST',
+            headers: this.headers,
+            body: JSON.stringify(data)
+        });
         
         return response.json();
+    }
+    
+    connectWebSocket() {
+        const wsUrl = this.baseUrl.replace('http', 'ws');
+        this.ws = new WebSocket(`${wsUrl}/ws?token=${this.token}`);
+        
+        this.ws.onopen = () => {
+            // Subscribe to document updates
+            this.ws.send(JSON.stringify({
+                event: 'join_room',
+                data: { room: `user_${this.userId}` }
+            }));
+        };
+        
+        return this.ws;
     }
 }
 ```
@@ -503,6 +915,23 @@ curl -X POST http://localhost:8000/api/v1/documents/upload \
   -F "metadata={\"title\": \"Test Document\"}"
 ```
 
+### RAG Query Test
+```bash
+curl -X POST http://localhost:8000/api/v1/rag/query \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What are the payment terms?",
+    "filters": {"document_types": ["invoice", "contract"]}
+  }'
+```
+
+### WebSocket Test
+```bash
+# Using wscat or similar WebSocket client
+wscat -c "ws://localhost:8000/ws?token=YOUR_TOKEN"
+```
+
 ## Security Considerations
 
 1. **JWT Token Security**: Tokens expire after 1 hour, refresh tokens after 7 days
@@ -511,3 +940,7 @@ curl -X POST http://localhost:8000/api/v1/documents/upload \
 4. **Input Validation**: All inputs are validated and sanitized
 5. **CORS**: Configured for specific origins only
 6. **HTTPS**: Required in production environments
+7. **WebSocket Authentication**: JWT tokens required for WebSocket connections
+8. **Multi-Tenant Isolation**: Row-level security ensures data isolation
+9. **OAuth2 Security**: Secure OAuth2 flows for external connectors
+10. **API Key Management**: Secure storage and rotation of API keys

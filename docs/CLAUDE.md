@@ -17,7 +17,11 @@ Upload → Clean/Extract → Index (RAG) → Ask/Automate → Cite & Export
 ### Technology Stack
 - **Backend**: FastAPI (async), SQLAlchemy 2.0, PostgreSQL 15+ (with pgvector), Redis 7+, Celery/Arq
 - **Frontend**: Next.js 14+ (App Router), TypeScript 5+, Tailwind CSS 3+, React Hook Form, TanStack Query, Zustand
-- **AI/ML**: LangChain (tooling & retrievers), LangGraph (stateful graph orchestration), CrewAI (multi-agent teams), RAG pipeline, OCR (Tesseract), NLP (spaCy)
+- **AI/ML Framework**: **LangGraph** (primary orchestration framework for RAG pipeline)
+- **RAG Components**: LangChain (retrievers, embeddings, document processing), sentence-transformers (embeddings)
+- **Multi-Agent**: CrewAI (for complex document processing workflows)
+- **OCR**: Tesseract, AWS Textract, Google Vision
+- **NLP**: spaCy (entity extraction, text processing)
 - **Search**: Elasticsearch 8+ (hybrid search), pgvector (vector similarity)
 - **Infrastructure**: Docker, Docker Compose, AWS (production), Vercel (frontend)
 - **Testing**: pytest, Jest, Playwright, React Testing Library
@@ -219,15 +223,15 @@ class Document(Base):
 - **Celery/Arq**: Background task processing
 - **Redis 7+**: Caching, message broker, rate limiting
 - **Pydantic**: Data validation and serialization
-- **LangChain**: RAG tooling and retrievers
-- **LangGraph**: Stateful graph orchestration
-- **CrewAI**: Multi-agent team coordination
+- **LangGraph**: Primary orchestration framework for RAG pipeline
+- **LangChain**: RAG components (retrievers, embeddings, document processing)
+- **CrewAI**: Multi-agent team coordination for complex workflows
 - **Elasticsearch 8+**: Hybrid search and aggregations
 - **pgvector**: Vector similarity search
 - **Python-multipart**: File uploads
 - **PyJWT**: JWT authentication
 - **sentence-transformers**: Embedding generation
-- **spacy**: NLP processing
+- **spacy**: NLP processing (entity extraction, text processing)
 
 ### Frontend Dependencies
 - **Next.js 14+**: React framework with App Router and server actions
@@ -311,10 +315,10 @@ npm run lint                           # Lint code
 ## Contextual Knowledge
 
 ### Business Logic
-- **RAG Pipeline**: Document processing follows: upload → OCR/layout → chunk → embed → index → retrieve → rerank → generate → cite
+- **RAG Pipeline (LangGraph)**: Document processing follows: upload → OCR/layout → chunk → embed → index → retrieve → rerank → generate → cite
 - **Validation Workflow**: Low-confidence spans trigger human-in-the-loop validation tasks
 - **Hybrid Search**: Combines dense vector similarity (pgvector) with sparse BM25 (Elasticsearch) using reciprocal rank fusion
-- **Multi-Agent Orchestration**: CrewAI coordinates specialized agents for complex workflows
+- **Multi-Agent Orchestration (CrewAI)**: Coordinates specialized agents for complex document processing workflows
 - **Citation Management**: Every generated answer includes verifiable source citations with span references
 - **Multi-Tenant Isolation**: Row-level security ensures complete tenant data isolation
 - **Document Chunking**: Intelligent text splitting with metadata preservation and deduplication
@@ -605,3 +609,160 @@ export const MyComponent = () => {
 - Documentation updates
 
 This guide ensures consistent, high-quality code development and effective collaboration between human developers and AI assistants.
+
+---
+
+## 80/20 Development Philosophy
+
+This repository follows an **80/20 development approach**:
+- **80% Infrastructure**: Built by humans to provide a solid foundation
+- **20% Application Logic**: Built by Claude to implement specific features
+
+### AI/ML Framework Clarification
+
+This project uses a **multi-framework approach** with clear separation of concerns:
+
+#### **Primary Framework: LangGraph**
+- **Purpose**: Main orchestration framework for the RAG pipeline
+- **Role**: Manages the 5-step workflow (retrieve → rerank → generate → validate → cite)
+- **Location**: `app/services/advanced_rag.py` - Complete LangGraph workflow implementation
+
+#### **Supporting Framework: LangChain**
+- **Purpose**: RAG components and utilities
+- **Role**: Provides retrievers, embeddings, document processing tools
+- **Usage**: Used within LangGraph nodes for specific RAG operations
+
+#### **Multi-Agent Framework: CrewAI**
+- **Purpose**: Complex document processing workflows
+- **Role**: Coordinates specialized agents for advanced document analysis
+- **Status**: Framework ready, specific agents need implementation
+
+#### **RAG (Retrieval-Augmented Generation)**
+- **Purpose**: Core AI pattern, not a framework
+- **Role**: The overall approach for generating answers with citations
+- **Implementation**: Built using LangGraph + LangChain + custom components
+
+### Current Infrastructure Status (✅ Completed)
+
+The following infrastructure components have been built and are ready for Claude to build upon:
+
+✅ **WebSocket Server Infrastructure** - Complete with connection management, tenant isolation, and event routing
+✅ **Advanced RAG Pipeline Framework** - Complete with LangGraph workflow, reranker interfaces, and hybrid retrieval
+✅ **Source Connectors Framework** - Complete with abstract base classes, connector manager, and multiple service support
+✅ **API Integration** - WebSocket endpoint integrated into main API router
+✅ **Documentation** - Comprehensive 80/20 guidance and implementation details
+
+### Infrastructure Components for Claude to Build Upon
+
+#### 1. WebSocket Infrastructure (`app/core/websocket.py`)
+- **What's Built**: 
+  - Connection management with tenant isolation
+  - Event routing framework with predefined event types
+  - Authentication integration with database session
+  - Utility functions for broadcasting and notifications
+  - Error handling and connection cleanup
+  - Integration with main API router (`/ws` endpoint)
+- **What Claude Should Implement**: 
+  - Specific event handlers for document processing updates
+  - Real-time streaming responses for chat
+  - Validation task notifications
+  - User status updates and system notifications
+
+#### 2. Advanced RAG Pipeline (`app/services/advanced_rag.py`)
+- **What's Built**: 
+  - **LangGraph**-based RAG workflow with 5-step pipeline (retrieve → rerank → generate → validate → cite)
+  - Abstract base classes for rerankers (CrossEncoder, LightweightLLM)
+  - Hybrid retrieval framework combining vector and keyword search
+  - State management with structured data classes
+  - Factory functions for easy pipeline creation
+  - Support for multiple fusion methods (reciprocal rank, weighted sum)
+- **What Claude Should Implement**: 
+  - Cross-encoder model loading and inference
+  - LLM reranking with domain-specific prompts
+  - Reciprocal rank fusion algorithm implementation
+  - Weighted sum fusion with configurable weights
+  - LLM generation with context and citations
+  - Factuality verification and confidence scoring
+  - Citation extraction and span mapping
+
+#### 3. Source Connectors (`app/services/connectors.py`)
+- **What's Built**: 
+  - Abstract base class for all connectors with common interface
+  - Connector manager for centralized registration and sync
+  - Configuration management with credentials and settings
+  - Document metadata structures and sync result tracking
+  - Factory functions for connector creation
+  - Support for Google Drive, SharePoint, Confluence, Slack, GitHub
+  - Error handling and logging framework
+- **What Claude Should Implement**: 
+  - OAuth2 authentication flows for each service
+  - API integration for document listing and downloading
+  - Document processing and storage integration
+  - Real-time sync status updates via WebSocket
+  - Rate limiting and retry logic
+  - File type filtering and metadata extraction
+
+#### 4. Multi-Agent Orchestration (CrewAI)
+- **What's Built**: 
+  - **CrewAI** agent framework and coordination patterns
+  - Workflow structure and task definitions
+  - Integration points with existing services
+- **What Claude Should Implement**: 
+  - Specific agent implementations for document processing
+  - Task definitions and crew coordination
+  - Agent communication protocols
+  - Workflow orchestration logic
+
+### Claude's 20% Responsibilities
+
+#### High Priority Implementation Tasks
+1. **Real-time Features**: Implement WebSocket event handlers for document processing updates, chat streaming, and validation notifications
+2. **Advanced RAG**: Implement cross-encoder reranking, reciprocal rank fusion, and LLM generation with citations
+3. **External Integrations**: Implement OAuth2 flows and API integrations for Google Drive, SharePoint, Confluence, Slack, and GitHub
+4. **Multi-Agent Workflows**: Implement CrewAI agents for complex document processing workflows
+
+#### Medium Priority Implementation Tasks
+1. **Streaming Responses**: Implement streaming LLM responses with citations
+2. **Advanced OCR**: Implement AWS Textract and Google Vision integration
+3. **DLP/PII Detection**: Implement automatic redaction and policy enforcement
+4. **Domain Adapters**: Implement legal/finance specific processing
+
+#### Low Priority Implementation Tasks
+1. **Performance Optimization**: Implement caching and query optimization
+2. **Advanced Monitoring**: Implement custom metrics and alerting
+3. **User Experience**: Implement advanced UI interactions and animations
+4. **Testing**: Implement comprehensive test coverage for new features
+
+### Success Criteria for Claude's 20%
+- **Production Ready**: All implemented features must pass CI/CD gates
+- **Type Safe**: All code must pass TypeScript strict mode and mypy checks
+- **Tested**: All new features must have unit and integration tests
+- **Documented**: All new features must have clear documentation
+- **Secure**: All implementations must follow security best practices
+
+### Key TODO Markers for Claude Implementation
+
+The following TODO markers have been placed in the infrastructure code for Claude to implement:
+
+#### WebSocket Infrastructure (`app/core/websocket.py`)
+- `# TODO: Claude should implement these handlers` - Event handlers for document processing, validation, and chat
+- `# TODO: Claude should implement proper auth` - WebSocket authentication logic
+
+#### Advanced RAG Pipeline (`app/services/advanced_rag.py`)
+- `# TODO: Claude should implement cross-encoder loading` - Model initialization
+- `# TODO: Claude should implement cross-encoder reranking` - Reranking logic
+- `# TODO: Claude should implement LLM reranker` - LLM-based reranking
+- `# TODO: Claude should implement RRF algorithm` - Reciprocal rank fusion
+- `# TODO: Claude should implement weighted sum fusion` - Weighted fusion
+- `# TODO: Claude should implement LLM generation with context` - Answer generation
+- `# TODO: Claude should implement factuality verification` - Confidence scoring
+- `# TODO: Claude should implement citation extraction` - Citation mapping
+
+#### Source Connectors (`app/services/connectors.py`)
+- `# TODO: Claude should implement OAuth2 authentication` - Authentication flows
+- `# TODO: Claude should implement Google Drive API calls` - API integrations
+- `# TODO: Claude should implement document processing and storage` - Processing logic
+- `# TODO: Claude should implement Microsoft Graph authentication` - SharePoint auth
+- `# TODO: Claude should implement Confluence API authentication` - Confluence auth
+- `# TODO: Claude should implement Slack API authentication` - Slack auth
+- `# TODO: Claude should implement GitHub API authentication` - GitHub auth

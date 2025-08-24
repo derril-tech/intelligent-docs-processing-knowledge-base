@@ -13,10 +13,32 @@ import {
   Star
 } from 'lucide-react';
 
+'use client';
+
+import { useSession } from 'next-auth/react';
+import { useEffect } from 'react';
+
 export default function HomePage() {
-  // TODO: Add authentication state management and user-specific content
-  // TODO: Implement analytics tracking for page views and user interactions
-  // TODO: Add loading states and error boundaries
+  const { data: session, status } = useSession();
+  
+  // Analytics tracking
+  useEffect(() => {
+    // TODO: Implement analytics tracking for page views and user interactions
+    // This would typically integrate with Google Analytics, Mixpanel, etc.
+    console.log('Page view: Home');
+  }, []);
+  // Loading state
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary-50 to-secondary-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 to-secondary-50 dark:from-gray-900 dark:to-gray-800">
       {/* Header */}
@@ -29,12 +51,25 @@ export default function HomePage() {
             </span>
           </div>
           <div className="flex items-center space-x-4">
-            <Link href="/login">
-              <Button variant="ghost">Sign In</Button>
-            </Link>
-            <Link href="/register">
-              <Button>Get Started</Button>
-            </Link>
+            {session ? (
+              <>
+                <Link href="/dashboard">
+                  <Button variant="ghost">Dashboard</Button>
+                </Link>
+                <Link href="/profile">
+                  <Button>Profile</Button>
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link href="/login">
+                  <Button variant="ghost">Sign In</Button>
+                </Link>
+                <Link href="/register">
+                  <Button>Get Started</Button>
+                </Link>
+              </>
+            )}
           </div>
         </nav>
       </header>

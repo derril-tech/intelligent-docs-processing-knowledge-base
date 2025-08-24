@@ -82,8 +82,49 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    # TODO: Add comprehensive health checks for database, Redis, and external services
-    return {"status": "healthy"}
+    """Comprehensive health check for all services"""
+    health_status = {
+        "status": "healthy",
+        "timestamp": time.time(),
+        "services": {}
+    }
+    
+    # Database health check
+    try:
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        health_status["services"]["database"] = "healthy"
+    except Exception as e:
+        health_status["services"]["database"] = f"unhealthy: {str(e)}"
+        health_status["status"] = "degraded"
+    
+    # Redis health check
+    try:
+        import redis
+        from app.core.config import settings
+        r = redis.from_url(settings.REDIS_URL)
+        r.ping()
+        health_status["services"]["redis"] = "healthy"
+    except Exception as e:
+        health_status["services"]["redis"] = f"unhealthy: {str(e)}"
+        health_status["status"] = "degraded"
+    
+    # Elasticsearch health check
+    try:
+        import requests
+        from app.core.config import settings
+        response = requests.get(f"{settings.ELASTICSEARCH_URL}/_cluster/health", timeout=5)
+        if response.status_code == 200:
+            health_status["services"]["elasticsearch"] = "healthy"
+        else:
+            health_status["services"]["elasticsearch"] = f"unhealthy: status {response.status_code}"
+            health_status["status"] = "degraded"
+    except Exception as e:
+        health_status["services"]["elasticsearch"] = f"unhealthy: {str(e)}"
+        health_status["status"] = "degraded"
+    
+    return health_status
 
 if __name__ == "__main__":
     import uvicorn

@@ -11,3 +11,7 @@ api_router.include_router(processing.router, prefix="/processing", tags=["proces
 api_router.include_router(validation.router, prefix="/validation", tags=["validation"])
 api_router.include_router(knowledge_base.router, prefix="/knowledge", tags=["knowledge-base"])
 api_router.include_router(rag.router, prefix="/rag", tags=["rag"])
+
+# WebSocket endpoint for real-time communication
+from app.core.websocket import websocket_endpoint
+api_router.add_websocket_route("/ws", websocket_endpoint)
